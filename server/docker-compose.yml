@@ -18,8 +18,29 @@ services:
       timeout: 3s
       retries: 10
 
+  # S3-compatible storage for local dev/testing of the `s3` provider.
+  minio:
+    image: minio/minio:latest
+    container_name: momento-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: momento
+      MINIO_ROOT_PASSWORD: momento123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - momento_minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   momento_pgdata:
+  momento_minio:
   # Local media volume is a host bind dir (STORAGE_LOCAL_DIR) when the app runs
   # outside docker; kept here for when the app service is containerised later.
   momento_media:

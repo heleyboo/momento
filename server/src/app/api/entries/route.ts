@@ -5,6 +5,7 @@ import { getUserSettings } from "@/lib/settings/get-user-settings";
 import { captionFromFrame } from "@/lib/ai/caption-from-frame";
 import { coerceCategory } from "@/lib/ai/caption-prompt";
 import { getStorage } from "@/lib/storage/get-storage";
+import { resolveStorageCtx, driveTokenFromHeader } from "@/lib/storage/build-storage-ctx";
 import { parseMultipart } from "@/lib/storage/multipart-stream";
 import { sniffMime, isAllowedMime } from "@/lib/storage/media-types";
 import { buildObjectKey } from "@/lib/storage/object-key";
@@ -33,8 +34,10 @@ const metaSchema = z.object({
 export async function GET(req: NextRequest) {
   const auth = await requireUser(req);
   if (isAuthError(auth)) return auth.error;
+  const ctxr = await resolveStorageCtx(auth.userId, driveTokenFromHeader(req));
+  if (ctxr.error) return ctxr.error;
   const rows = await listEntries(auth.userId);
-  const dtos = await Promise.all(rows.map(toEntryDTO));
+  const dtos = await Promise.all(rows.map((r) => toEntryDTO(r, ctxr.ctx)));
   return NextResponse.json({ entries: dtos });
 }
 
@@ -89,6 +92,11 @@ export async function POST(req: NextRequest) {
     category = coerceCategory(meta.data.category ?? null);
   }
 
+  // Resolve Drive ctx (401 on bad/missing token) BEFORE reserving quota.
+  const ctxr = await resolveStorageCtx(auth.userId, parsed.fields.driveToken);
+  if (ctxr.error) return ctxr.error;
+  const ctx = ctxr.ctx;
+
   // Reserve quota before writing bytes.
   if (!(await reserveQuota(auth.userId, media.buffer.length))) {
     return NextResponse.json({ error: "storage quota exceeded" }, { status: 507 });
@@ -98,14 +106,17 @@ export async function POST(req: NextRequest) {
   const { key } = buildObjectKey(auth.userId, new Date(meta.data.takenAt));
   let stored;
   try {
-    stored = await storage.put({
-      userId: auth.userId,
-      key,
-      bytes: media.buffer,
-      mime: mediaMime,
-      thumbnail: true,
-      posterBytes: poster,
-    });
+    stored = await storage.put(
+      {
+        userId: auth.userId,
+        key,
+        bytes: media.buffer,
+        mime: mediaMime,
+        thumbnail: true,
+        posterBytes: poster,
+      },
+      ctx,
+    );
   } catch {
     await releaseQuota(auth.userId, media.buffer.length);
     return NextResponse.json({ error: "storage write failed" }, { status: 500 });
@@ -118,6 +129,7 @@ export async function POST(req: NextRequest) {
       storageProvider: storage.name,
       storageRef: stored.ref,
       thumbnailRef: stored.thumbnailRef ?? null,
+      sizeBytes: media.buffer.length,
       kind: meta.data.kind,
       caption,
       captionSource,
@@ -130,16 +142,16 @@ export async function POST(req: NextRequest) {
 
     if (!created) {
       // Idempotent replay: discard the bytes we just wrote, return existing row.
-      await storage.delete(auth.userId, stored.ref).catch(() => {});
-      if (stored.thumbnailRef) await storage.delete(auth.userId, stored.thumbnailRef).catch(() => {});
+      await storage.delete(auth.userId, stored.ref, ctx).catch(() => {});
+      if (stored.thumbnailRef) await storage.delete(auth.userId, stored.thumbnailRef, ctx).catch(() => {});
       await releaseQuota(auth.userId, media.buffer.length);
-      return NextResponse.json(await toEntryDTO(entry), { status: 200 });
+      return NextResponse.json(await toEntryDTO(entry, ctx), { status: 200 });
     }
-    return NextResponse.json(await toEntryDTO(entry), { status: 201 });
+    return NextResponse.json(await toEntryDTO(entry, ctx), { status: 201 });
   } catch {
     // Insert failed after write → clean up the orphaned bytes + quota.
-    await storage.delete(auth.userId, stored.ref).catch(() => {});
-    if (stored.thumbnailRef) await storage.delete(auth.userId, stored.thumbnailRef).catch(() => {});
+    await storage.delete(auth.userId, stored.ref, ctx).catch(() => {});
+    if (stored.thumbnailRef) await storage.delete(auth.userId, stored.thumbnailRef, ctx).catch(() => {});
     await releaseQuota(auth.userId, media.buffer.length);
     return NextResponse.json({ error: "failed to persist entry" }, { status: 500 });
   }

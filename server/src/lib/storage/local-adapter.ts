@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import sharp from "sharp";
 import type { PutInput, PutResult, StorageProvider } from "./provider";
-import { extForMime, isThumbnailable } from "./media-types";
+import { extForMime } from "./media-types";
+import { makeThumbnail } from "./make-thumbnail";
 import { isValidRef, resolveWithinBase } from "./object-key";
 
 // Local filesystem adapter: writes bytes under STORAGE_LOCAL_DIR. `getUrl`
@@ -26,24 +26,13 @@ export class LocalStorageAdapter implements StorageProvider {
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, input.bytes);
 
-    // Thumbnail source: prefer the poster frame (always a decodable JPEG, and
-    // required for video/HEIC); else the media itself if it's a sharp-decodable
-    // raster. Thumbnail failure must NOT fail media persistence — the media is
-    // already written, so a thumb error degrades to "no thumbnail".
+    // Thumbnail (non-fatal): generated from poster/media via the shared helper.
     let thumbnailRef: string | undefined;
-    const thumbSource = input.posterBytes ?? (isThumbnailable(input.mime) ? input.bytes : undefined);
-    if (input.thumbnail && thumbSource) {
-      try {
-        const candidateRef = `${input.key}_thumb.webp`;
-        const thumbTarget = resolveWithinBase(this.baseDir, candidateRef);
-        const webp = await sharp(thumbSource)
-          .resize(400, 400, { fit: "inside", withoutEnlargement: true })
-          .webp({ quality: 72 })
-          .toBuffer();
-        await fs.writeFile(thumbTarget, webp);
-        thumbnailRef = candidateRef;
-      } catch {
-        thumbnailRef = undefined; // media persists; entry simply has no thumbnail
+    if (input.thumbnail) {
+      const webp = await makeThumbnail(input.mime, input.bytes, input.posterBytes);
+      if (webp) {
+        thumbnailRef = `${input.key}_thumb.webp`;
+        await fs.writeFile(resolveWithinBase(this.baseDir, thumbnailRef), webp);
       }
     }
 

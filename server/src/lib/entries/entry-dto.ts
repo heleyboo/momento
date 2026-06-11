@@ -1,5 +1,6 @@
 import type { Entry } from "@/db/schema";
 import { getStorage } from "@/lib/storage/get-storage";
+import type { StorageCtx } from "@/lib/storage/provider";
 
 // Maps an entry row to the API shape the iOS client consumes, resolving
 // provider-aware media/thumbnail URLs.
@@ -21,11 +22,11 @@ export interface EntryDTO {
   updatedAt: string;
 }
 
-export async function toEntryDTO(row: Entry): Promise<EntryDTO> {
+export async function toEntryDTO(row: Entry, ctx?: StorageCtx): Promise<EntryDTO> {
   const storage = getStorage();
-  const mediaUrl = await storage.getUrl(row.userId, row.storageRef);
+  const mediaUrl = await storage.getUrl(row.userId, row.storageRef, ctx);
   const thumbnailUrl = row.thumbnailRef
-    ? await storage.getUrl(row.userId, row.thumbnailRef)
+    ? await storage.getUrl(row.userId, row.thumbnailRef, ctx)
     : null;
   return {
     id: row.id,

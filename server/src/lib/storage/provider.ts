@@ -1,16 +1,17 @@
 // Storage ports & adapters. iOS is storage-agnostic; only the backend knows
 // which provider holds the bytes. Switching providers = STORAGE_PROVIDER env.
-//
-// NOTE: `StorageCtx` is intentionally NOT finalized in Phase 1 — only `local`
-// ships now and it needs no ctx. The Drive adapter (Phase 7) will add the
-// forwarded-token / folder-id fields it actually requires.
 
 export type StorageProviderName = "local" | "s3" | "gcs" | "drive";
 
+// Per-request context. Only the `drive` provider uses it: the user's Drive
+// access token is forwarded per request (never persisted) and validated against
+// the expected Google subject before any Drive call.
 export interface StorageCtx {
-  // Reserved for provider-specific per-request data (e.g. Drive forwarded token).
-  // Finalized in Phase 7.
   driveToken?: string;
+  expectedGoogleSub?: string;
+  // Set once per request after the Drive token is validated, so adapters don't
+  // re-hit Google's tokeninfo per object on multi-object reads.
+  driveTokenValidated?: boolean;
 }
 
 export interface PutResult {

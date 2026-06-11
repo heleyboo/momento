@@ -47,6 +47,8 @@ export const entries = pgTable(
     storageRef: text("storage_ref").notNull(),
     thumbnailRef: text("thumbnail_ref"),
     kind: mediaKind("kind").notNull(),
+    // Stored media size in bytes — drives quota release on delete.
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
     caption: text("caption"),
     // Distinguishes untouched AI caption from a deliberate user edit (incl. empty).
     captionSource: captionSource("caption_source").notNull().default("ai"),

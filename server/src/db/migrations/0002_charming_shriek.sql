@@ -1,0 +1,1 @@
+ALTER TABLE "entries" ADD COLUMN "size_bytes" bigint;
