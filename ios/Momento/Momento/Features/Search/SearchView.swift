@@ -83,8 +83,10 @@ struct SearchView: View {
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
                     LazyVStack(spacing: 10) {
                         ForEach(results) { entry in
-                            NavigationLink(value: entry) { EntryCardView(entry: entry) }
-                                .buttonStyle(.plain)
+                            NavigationLink(value: entry) {
+                                EntryCardView(entry: entry, highlight: query)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }

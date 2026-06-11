@@ -1,8 +1,10 @@
 import SwiftUI
 
 // Timeline row: thumbnail + meta (time · category) + caption + sync status.
+// `highlight` (set by Search) marks matching caption ranges with an accent bg.
 struct EntryCardView: View {
     let entry: LocalEntry
+    var highlight: String? = nil
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -10,7 +12,7 @@ struct EntryCardView: View {
             thumbnail
             VStack(alignment: .leading, spacing: 6) {
                 metaRow
-                Text(entry.caption ?? "—")
+                Text(captionText)
                     .font(Typo.caption)
                     .foregroundStyle(palette.ink)
                     .lineLimit(3)
@@ -56,5 +58,24 @@ struct EntryCardView: View {
         f.locale = Locale(identifier: "vi_VN")
         f.dateFormat = "HH:mm"
         return f.string(from: entry.takenAt)
+    }
+
+    // Caption with every occurrence of `highlight` marked (accent background).
+    private var captionText: AttributedString {
+        let raw = entry.caption ?? "—"
+        var attr = AttributedString(raw)
+        guard let query = highlight, !query.isEmpty else { return attr }
+
+        var from = raw.startIndex
+        while let r = raw.range(of: query, options: [.caseInsensitive, .diacriticInsensitive],
+                               range: from..<raw.endIndex) {
+            if let lo = AttributedString.Index(r.lowerBound, within: attr),
+               let hi = AttributedString.Index(r.upperBound, within: attr) {
+                attr[lo..<hi].backgroundColor = palette.accent.opacity(0.28)
+            }
+            from = r.upperBound
+            if from == raw.endIndex { break }
+        }
+        return attr
     }
 }
