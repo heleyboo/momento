@@ -9,6 +9,7 @@ final class AppState {
     let entries: EntriesAPI
     let auth: AuthAPI
     let create: CreateAPI
+    let settings: SettingsAPI
     let monitor = NetworkMonitor()
 
     init() {
@@ -19,6 +20,7 @@ final class AppState {
         self.entries = EntriesAPI(client: api)
         self.auth = AuthAPI(client: api, session: session)
         self.create = CreateAPI(client: api, session: session)
+        self.settings = SettingsAPI(client: api)
         monitor.start()
     }
 }

@@ -40,9 +40,9 @@ struct MainTabView: View {
     @ViewBuilder private var content: some View {
         switch tab {
         case .timeline: TimelineView()
-        case .album: ComingSoonView(title: "Album", symbol: "square.grid.2x2")
-        case .search: ComingSoonView(title: "Tìm kiếm", symbol: "magnifyingglass")
-        case .settings: ComingSoonView(title: "Cài đặt", symbol: "gearshape")
+        case .album: AlbumView()
+        case .search: SearchView()
+        case .settings: SettingsView()
         }
     }
 
