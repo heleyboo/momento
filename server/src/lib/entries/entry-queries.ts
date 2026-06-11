@@ -1,4 +1,4 @@
-import { and, eq, or, desc, sql } from "drizzle-orm";
+import { and, eq, or, desc, ilike, gte, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
 import { entries, albums, entryAlbums, users, type Entry, type NewEntry } from "@/db/schema";
 
@@ -21,11 +21,38 @@ export async function findOwnedEntryByRef(userId: string, ref: string): Promise<
   return row ?? null;
 }
 
-export async function listEntries(userId: string, limit = 100): Promise<Entry[]> {
+export interface EntryFilters {
+  q?: string; // caption keyword (trigram ILIKE)
+  kind?: "photo" | "video";
+  cat?: string; // category label
+  from?: Date; // takenAt >=
+  to?: Date; // takenAt <=
+}
+
+// Newest-first list with optional filters. The `user_id = :me` predicate is
+// always ANDed first so no filter branch can widen tenancy. All values are
+// parameter-bound by Drizzle (no string interpolation).
+export async function searchEntries(
+  userId: string,
+  filters: EntryFilters = {},
+  limit = 100,
+): Promise<Entry[]> {
+  const conds: SQL[] = [eq(entries.userId, userId)];
+  // Escape LIKE wildcards so a user-typed % or _ matches literally (Postgres
+  // default escape char is backslash). Value is still parameter-bound.
+  if (filters.q) {
+    const literal = filters.q.replace(/[\\%_]/g, "\\$&");
+    conds.push(ilike(entries.caption, `%${literal}%`));
+  }
+  if (filters.kind) conds.push(eq(entries.kind, filters.kind));
+  if (filters.cat) conds.push(eq(entries.category, filters.cat));
+  if (filters.from) conds.push(gte(entries.takenAt, filters.from));
+  if (filters.to) conds.push(lte(entries.takenAt, filters.to));
+
   return db
     .select()
     .from(entries)
-    .where(eq(entries.userId, userId))
+    .where(and(...conds))
     .orderBy(desc(entries.takenAt))
     .limit(limit);
 }

@@ -11,10 +11,12 @@ import { sniffMime, isAllowedMime } from "@/lib/storage/media-types";
 import { buildObjectKey } from "@/lib/storage/object-key";
 import {
   insertEntryIdempotent,
-  listEntries,
+  searchEntries,
   reserveQuota,
   releaseQuota,
+  type EntryFilters,
 } from "@/lib/entries/entry-queries";
+import { CATEGORIES } from "@/lib/ai/caption-prompt";
 import { toEntryDTO } from "@/lib/entries/entry-dto";
 
 const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 314572800); // 300 MB
@@ -30,13 +32,40 @@ const metaSchema = z.object({
   category: z.string().max(40).optional(),
 });
 
-// GET /api/entries — newest-first list for the session user.
+const filterSchema = z.object({
+  q: z.string().trim().min(1).max(100).optional(),
+  kind: z.enum(["photo", "video"]).optional(),
+  cat: z.enum(CATEGORIES).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+// GET /api/entries[?q=&kind=&cat=&from=&to=] — newest-first list/search.
 export async function GET(req: NextRequest) {
   const auth = await requireUser(req);
   if (isAuthError(auth)) return auth.error;
+
+  const sp = req.nextUrl.searchParams;
+  const parsed = filterSchema.safeParse({
+    q: sp.get("q") ?? undefined,
+    kind: sp.get("kind") ?? undefined,
+    cat: sp.get("cat") ?? undefined,
+    from: sp.get("from") ?? undefined,
+    to: sp.get("to") ?? undefined,
+  });
+  if (!parsed.success) return NextResponse.json({ error: "invalid filters" }, { status: 400 });
+
+  const filters: EntryFilters = {
+    q: parsed.data.q,
+    kind: parsed.data.kind,
+    cat: parsed.data.cat,
+    from: parsed.data.from ? new Date(parsed.data.from) : undefined,
+    to: parsed.data.to ? new Date(parsed.data.to) : undefined,
+  };
+
   const ctxr = await resolveStorageCtx(auth.userId, driveTokenFromHeader(req));
   if (ctxr.error) return ctxr.error;
-  const rows = await listEntries(auth.userId);
+  const rows = await searchEntries(auth.userId, filters);
   const dtos = await Promise.all(rows.map((r) => toEntryDTO(r, ctxr.ctx)));
   return NextResponse.json({ entries: dtos });
 }
