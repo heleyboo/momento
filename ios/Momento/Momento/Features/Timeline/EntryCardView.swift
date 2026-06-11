@@ -1,9 +1,8 @@
 import SwiftUI
 
 // Timeline row: thumbnail + meta (time · category) + caption + sync status.
-// Matches the handoff's card (radius 20, thumbnail 72, gap layout).
 struct EntryCardView: View {
-    let entry: EntryDTO
+    let entry: LocalEntry
     @Environment(\.palette) private var palette
 
     var body: some View {
@@ -15,10 +14,12 @@ struct EntryCardView: View {
                     .font(Typo.caption)
                     .foregroundStyle(palette.ink)
                     .lineLimit(3)
-                if entry.syncStatus == "uploading" || entry.syncStatus == "pending" {
+                if entry.syncState == .uploading || entry.syncState == .pending {
                     Label("Đang tải lên…", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.system(size: 12))
-                        .foregroundStyle(palette.accent)
+                        .font(.system(size: 12)).foregroundStyle(palette.accent)
+                } else if entry.syncState == .error {
+                    Label("Lỗi đồng bộ · sẽ thử lại", systemImage: "exclamationmark.triangle")
+                        .font(.system(size: 12)).foregroundStyle(.orange)
                 }
             }
             Spacer(minLength: 0)
@@ -28,26 +29,21 @@ struct EntryCardView: View {
     }
 
     private var thumbnail: some View {
-        RemoteImage(urlString: entry.thumbnailUrl ?? entry.mediaUrl)
+        EntryImage(entry: entry)
             .frame(width: 72, height: 72)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .bottomTrailing) {
                 if entry.isVideo {
                     Image(systemName: "play.fill")
-                        .font(.system(size: 9))
-                        .foregroundStyle(.white)
-                        .padding(4)
-                        .background(.black.opacity(0.55), in: Circle())
-                        .padding(4)
+                        .font(.system(size: 9)).foregroundStyle(.white)
+                        .padding(4).background(.black.opacity(0.55), in: Circle()).padding(4)
                 }
             }
     }
 
     private var metaRow: some View {
         HStack(spacing: 6) {
-            Text(timeText)
-                .font(Typo.meta)
-                .foregroundStyle(palette.ter)
+            Text(timeText).font(Typo.meta).foregroundStyle(palette.ter)
             if let cat = entry.category {
                 Circle().fill(palette.ter).frame(width: 3, height: 3)
                 CategoryChip(category: cat)
@@ -56,10 +52,9 @@ struct EntryCardView: View {
     }
 
     private var timeText: String {
-        guard let d = entry.takenDate else { return "" }
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
         f.dateFormat = "HH:mm"
-        return f.string(from: d)
+        return f.string(from: entry.takenAt)
     }
 }

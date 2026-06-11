@@ -8,6 +8,8 @@ final class AppState {
     let api: APIClient
     let entries: EntriesAPI
     let auth: AuthAPI
+    let create: CreateAPI
+    let monitor = NetworkMonitor()
 
     init() {
         let session = SessionStore()
@@ -16,5 +18,7 @@ final class AppState {
         self.api = api
         self.entries = EntriesAPI(client: api)
         self.auth = AuthAPI(client: api, session: session)
+        self.create = CreateAPI(client: api, session: session)
+        monitor.start()
     }
 }

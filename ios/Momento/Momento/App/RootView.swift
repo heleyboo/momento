@@ -31,8 +31,9 @@ struct MainTabView: View {
             tabBar
         }
         .background(palette.bg.ignoresSafeArea())
-        .sheet(isPresented: $showCamera) {
-            ComingSoonView(title: "Camera", symbol: "camera").momentoThemeFromScheme()
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraView(onFinished: { showCamera = false })
+                .momentoThemeAuto()
         }
     }
 
@@ -88,14 +89,3 @@ struct MainTabView: View {
     }
 }
 
-private extension View {
-    // Re-inject palette inside sheets (new environment context).
-    func momentoThemeFromScheme() -> some View {
-        modifier(SheetThemeModifier())
-    }
-}
-
-private struct SheetThemeModifier: ViewModifier {
-    @Environment(\.colorScheme) private var scheme
-    func body(content: Content) -> some View { content.momentoTheme(scheme) }
-}

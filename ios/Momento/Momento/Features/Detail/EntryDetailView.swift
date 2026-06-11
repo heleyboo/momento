@@ -1,18 +1,16 @@
 import SwiftUI
 
-// Full-screen view of one moment. Read-only in Phase 4; edit/delete affordances
-// (wired to PATCH/DELETE) arrive with Phase 7's iOS work.
+// Full-screen view of one moment. Read-only here; edit/delete affordances (PATCH/
+// DELETE) are Phase 7's iOS work.
 struct EntryDetailView: View {
-    let entry: EntryDTO
+    let entry: LocalEntry
     @Environment(\.palette) private var palette
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                RemoteImage(urlString: entry.mediaUrl)
-                    .frame(height: 392)
-                    .frame(maxWidth: .infinity)
-                    .clipped()
+                EntryImage(entry: entry, preferFull: true)
+                    .frame(height: 392).frame(maxWidth: .infinity).clipped()
                     .overlay(alignment: .center) {
                         if entry.isVideo {
                             Image(systemName: "play.circle.fill")
@@ -51,8 +49,7 @@ struct EntryDetailView: View {
             Divider().overlay(palette.sep)
             metaRow(icon: "square.grid.2x2", label: "Album", value: entry.category ?? "—")
             Divider().overlay(palette.sep)
-            metaRow(icon: entry.isVideo ? "video" : "photo",
-                    label: "Định dạng",
+            metaRow(icon: entry.isVideo ? "video" : "photo", label: "Định dạng",
                     value: entry.isVideo ? "Video" : "Ảnh")
         }
         .padding(.horizontal, 14)
@@ -69,10 +66,9 @@ struct EntryDetailView: View {
     }
 
     private var dateText: String {
-        guard let d = entry.takenDate else { return "" }
         let f = DateFormatter()
         f.locale = Locale(identifier: "vi_VN")
         f.dateFormat = "d MMMM yyyy · HH:mm"
-        return f.string(from: d)
+        return f.string(from: entry.takenAt)
     }
 }

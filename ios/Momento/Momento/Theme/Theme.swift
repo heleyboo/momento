@@ -31,4 +31,12 @@ extension View {
     func momentoTheme(_ scheme: ColorScheme) -> some View {
         environment(\.palette, Palette.resolve(scheme))
     }
+
+    // Re-injects the palette in a fresh environment context (sheets / covers).
+    func momentoThemeAuto() -> some View { modifier(AutoThemeModifier()) }
+}
+
+private struct AutoThemeModifier: ViewModifier {
+    @Environment(\.colorScheme) private var scheme
+    func body(content: Content) -> some View { content.momentoTheme(scheme) }
 }
