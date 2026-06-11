@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: momento-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: momento
+      POSTGRES_USER: momento
+      POSTGRES_PASSWORD: momento
+    ports:
+      # Host 5433 (5432 is commonly taken by another local Postgres); container stays 5432.
+      - "5433:5432"
+    volumes:
+      - momento_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U momento -d momento"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  momento_pgdata:
+  # Local media volume is a host bind dir (STORAGE_LOCAL_DIR) when the app runs
+  # outside docker; kept here for when the app service is containerised later.
+  momento_media:
