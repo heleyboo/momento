@@ -2,16 +2,19 @@ import SwiftUI
 
 // Full-screen view of one moment. Read-only here; edit/delete affordances (PATCH/
 // DELETE) are Phase 7's iOS work.
+// Identifiable wrapper so the full-screen pager can present at a tapped index.
+private struct PagerStart: Identifiable { let id = UUID(); let index: Int }
+
 struct EntryDetailView: View {
     let entry: LocalEntry
     @Environment(\.palette) private var palette
-    @State private var playMedia: LocalMedia?
-    @State private var page = 0
+    @State private var pager: PagerStart?
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                carousel
+                MediaCollage(media: entry.sortedMedia) { pager = PagerStart(index: $0) }
+                    .padding(.bottom, 4)
 
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
@@ -36,30 +39,9 @@ struct EntryDetailView: View {
         .background(palette.bg.ignoresSafeArea())
         .navigationTitle("Khoảnh khắc")
         .navigationBarTitleDisplayMode(.inline)
-        .fullScreenCover(item: $playMedia) { VideoPlayerView(media: $0) }
-    }
-
-    // Swipeable gallery over the post's media; tap a video to play it.
-    private var carousel: some View {
-        let items = entry.sortedMedia
-        return TabView(selection: $page) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { idx, media in
-                EntryImage(media: media, preferFull: true)
-                    .frame(maxWidth: .infinity).frame(height: 392).clipped()
-                    .overlay(alignment: .center) {
-                        if media.isVideo {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 66)).foregroundStyle(.white.opacity(0.9))
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture { if media.isVideo { playMedia = media } }
-                    .tag(idx)
-            }
+        .fullScreenCover(item: $pager) { p in
+            MediaPagerView(media: entry.sortedMedia, index: p.index)
         }
-        .frame(height: 392)
-        .tabViewStyle(.page(indexDisplayMode: items.count > 1 ? .automatic : .never))
-        .indexViewStyle(.page(backgroundDisplayMode: .interactive))
     }
 
     private var metaCard: some View {
