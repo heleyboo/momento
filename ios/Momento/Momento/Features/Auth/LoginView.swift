@@ -89,7 +89,22 @@ struct LoginView: View {
         Task {
             defer { loading = false }
             do { try await app.auth.signIn() }
-            catch { self.error = "Đăng nhập Google thất bại." }
+            catch { self.error = "Đăng nhập Google thất bại — \(Self.reason(error))" }
+        }
+    }
+
+    // Surfaces the underlying failure so auth setup issues are diagnosable
+    // (backend audience mismatch → 401, unreachable host → transport, etc).
+    private static func reason(_ error: Error) -> String {
+        switch error {
+        case GoogleAuthError.cancelled: return "đã huỷ"
+        case GoogleAuthError.noCode: return "không nhận được mã"
+        case GoogleAuthError.tokenExchangeFailed: return "đổi token Google lỗi"
+        case APIError.unauthorized: return "backend từ chối (401 — kiểm tra GOOGLE_CLIENT_ID_IOS)"
+        case APIError.http(let code): return "backend HTTP \(code)"
+        case APIError.decoding: return "phản hồi không hợp lệ"
+        case APIError.transport(let e): return "không kết nối được backend (\(e.localizedDescription))"
+        default: return error.localizedDescription
         }
     }
 }
