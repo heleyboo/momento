@@ -47,6 +47,8 @@ Google Sign-In on iOS → backend session.
 5. Set a strong `JWT_SECRET` (`node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`).
 
 ### Endpoints
+- `POST /api/auth/register {email, password, name?}` → `{token, refreshToken, user}` (scrypt-hashed password; 409 if email taken).
+- `POST /api/auth/login {email, password}` → `{token, refreshToken, user}` (401 on bad credentials; email matched case-insensitively).
 - `POST /api/auth/google {idToken}` → `{token, refreshToken, user}` (verifies ID token, upserts user, seeds settings).
 - `POST /api/auth/refresh {refreshToken}` → `{token}` (new short-lived access token).
 - `DELETE /api/auth/refresh {refreshToken}` → 204 (revoke / sign out).

@@ -22,7 +22,10 @@ export const captionSource = pgEnum("caption_source", ["ai", "user"]);
 // --- Users -------------------------------------------------------------------
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  googleSub: text("google_sub").notNull().unique(),
+  // Nullable: Google users have a google_sub; email/password users have a
+  // password_hash. At least one identity is present.
+  googleSub: text("google_sub").unique(),
+  passwordHash: text("password_hash"),
   email: text("email").notNull(),
   name: text("name"),
   avatarUrl: text("avatar_url"),
