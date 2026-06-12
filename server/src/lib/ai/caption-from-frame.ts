@@ -25,7 +25,7 @@ function ai(): GoogleGenAI {
   return client;
 }
 
-const MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+const MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 export async function captionFromFrame(
   poster: Buffer,
