@@ -27,26 +27,9 @@ async function main() {
     sql`CREATE INDEX IF NOT EXISTS entries_caption_trgm_idx ON entries USING gin (caption gin_trgm_ops)`,
   );
 
-  // Backfill: each existing single-media entry becomes one entry_media row
-  // (position 0). Idempotent — skips entries that already have media. Guarded on
-  // the legacy column still existing, so this stays a no-op after the contract
-  // migration drops entries.storage_ref.
-  const legacy = await db.execute(sql`
-    SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'entries' AND column_name = 'storage_ref' LIMIT 1
-  `);
-  if (legacy.length > 0) {
-    console.log("[migrate] backfilling entry_media from legacy entry columns...");
-    await db.execute(sql`
-      INSERT INTO entry_media (user_id, client_entry_id, media_client_id, entry_id, position,
-                               kind, storage_provider, storage_ref, thumbnail_ref, duration_sec, size_bytes)
-      SELECT e.user_id, e.client_entry_id, gen_random_uuid(), e.id, 0,
-             e.kind, e.storage_provider, e.storage_ref, e.thumbnail_ref, e.duration_sec,
-             COALESCE(e.size_bytes, 0)
-      FROM entries e
-      WHERE NOT EXISTS (SELECT 1 FROM entry_media m WHERE m.entry_id = e.id)
-    `);
-  }
+  // Note: the legacy single-media → entry_media backfill lives inline in
+  // migration 0004 so it runs in-sequence (before the 0006 contract drop),
+  // correct even when a fresh DB applies all migrations in one pass.
 
   console.log("[migrate] done.");
   await client.end();

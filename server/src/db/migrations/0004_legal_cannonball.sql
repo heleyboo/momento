@@ -19,4 +19,8 @@ ALTER TABLE "entry_media" ADD CONSTRAINT "entry_media_entry_id_entries_id_fk" FO
 CREATE UNIQUE INDEX "entry_media_stage_uq" ON "entry_media" USING btree ("user_id","client_entry_id","media_client_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "entry_media_entry_position_uq" ON "entry_media" USING btree ("entry_id","position");--> statement-breakpoint
 CREATE INDEX "entry_media_user_ref_idx" ON "entry_media" USING btree ("user_id","storage_ref");--> statement-breakpoint
-CREATE INDEX "entry_media_entry_position_idx" ON "entry_media" USING btree ("entry_id","position");
+CREATE INDEX "entry_media_entry_position_idx" ON "entry_media" USING btree ("entry_id","position");--> statement-breakpoint
+INSERT INTO "entry_media" (user_id, client_entry_id, media_client_id, entry_id, position, kind, storage_provider, storage_ref, thumbnail_ref, duration_sec, size_bytes)
+SELECT e.user_id, e.client_entry_id, gen_random_uuid(), e.id, 0, e.kind, e.storage_provider, e.storage_ref, e.thumbnail_ref, e.duration_sec, COALESCE(e.size_bytes, 0)
+FROM entries e
+WHERE NOT EXISTS (SELECT 1 FROM entry_media m WHERE m.entry_id = e.id);
