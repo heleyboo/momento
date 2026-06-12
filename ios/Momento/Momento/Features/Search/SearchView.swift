@@ -90,6 +90,7 @@ struct SearchView: View {
                         }
                     }
                 }
+                .bottomBarInset()
             }
         }
     }

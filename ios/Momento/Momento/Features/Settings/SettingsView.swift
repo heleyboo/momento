@@ -35,6 +35,7 @@ struct SettingsView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .bottomBarInset()
             .scrollContentBackground(.hidden)
             .background(palette.bg.ignoresSafeArea())
             .tint(palette.accent)

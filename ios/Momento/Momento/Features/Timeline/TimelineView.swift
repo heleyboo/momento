@@ -37,6 +37,7 @@ struct TimelineView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 16)
             }
+            .bottomBarInset()
             .background(palette.bg.ignoresSafeArea())
             .navigationDestination(for: LocalEntry.self) { EntryDetailView(entry: $0) }
             .refreshable { await refresh() }

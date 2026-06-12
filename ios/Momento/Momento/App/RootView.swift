@@ -25,17 +25,21 @@ struct MainTabView: View {
     @State private var tab: MomentoTab = .timeline
     @State private var showCamera = false
 
+    // Height each screen's scroll content reserves at the bottom so it clears the
+    // floating tab bar (applied via .bottomBarInset() inside each NavigationStack —
+    // an outer safeAreaInset doesn't reach scroll views inside a NavigationStack).
+    static let barInset: CGFloat = 72
+
     var body: some View {
-        content
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(palette.bg.ignoresSafeArea())
-            // safeAreaInset insets each screen's scroll content above the bar, so
-            // content scrolls fully and nothing hides behind the tab bar.
-            .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
-            .fullScreenCover(isPresented: $showCamera) {
-                ComposerView(onFinished: { showCamera = false })
-                    .momentoThemeAuto()
-            }
+        ZStack(alignment: .bottom) {
+            content
+            tabBar
+        }
+        .background(palette.bg.ignoresSafeArea())
+        .fullScreenCover(isPresented: $showCamera) {
+            ComposerView(onFinished: { showCamera = false })
+                .momentoThemeAuto()
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -87,6 +91,17 @@ struct MainTabView: View {
         .buttonStyle(.plain)
         .frame(maxWidth: .infinity)
         .offset(y: -18)
+    }
+}
+
+extension View {
+    /// Reserves space at the bottom of a scroll view / list so its content clears
+    /// the floating tab bar. Apply on the ScrollView/List INSIDE each tab's
+    /// NavigationStack (an outer safeAreaInset doesn't reach inside it).
+    func bottomBarInset() -> some View {
+        safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: MainTabView.barInset)
+        }
     }
 }
 
