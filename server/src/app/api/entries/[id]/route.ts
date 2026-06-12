@@ -6,13 +6,12 @@ import { coerceCategory } from "@/lib/ai/caption-prompt";
 import { getStorage } from "@/lib/storage/get-storage";
 import { resolveStorageCtx, driveTokenFromHeader } from "@/lib/storage/build-storage-ctx";
 import {
-  getOwnedEntry,
   updateOwnedEntry,
-  deleteOwnedEntry,
   releaseQuota,
   userOwnsAlbum,
   attachEntryToAlbum,
 } from "@/lib/entries/entry-queries";
+import { getEntryWithMedia, deleteEntryWithMedia } from "@/lib/entries/media-queries";
 import { toEntryDTO } from "@/lib/entries/entry-dto";
 
 // GET detail / PATCH edit / DELETE remove — all owner-scoped (404 on miss).
@@ -21,11 +20,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const auth = await requireUser(req);
   if (isAuthError(auth)) return auth.error;
   const { id } = await params;
-  const entry = await getOwnedEntry(auth.userId, id);
-  if (!entry) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const found = await getEntryWithMedia(auth.userId, id);
+  if (!found) return NextResponse.json({ error: "not found" }, { status: 404 });
   const ctxr = await resolveStorageCtx(auth.userId, driveTokenFromHeader(req));
   if (ctxr.error) return ctxr.error;
-  return NextResponse.json(await toEntryDTO(entry, ctxr.ctx));
+  return NextResponse.json(await toEntryDTO(found.entry, found.media, ctxr.ctx));
 }
 
 const patchSchema = z.object({
@@ -62,9 +61,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (body.data.albumId) await attachEntryToAlbum(updated.id, body.data.albumId);
 
+  const found = await getEntryWithMedia(auth.userId, id);
   const ctxr = await resolveStorageCtx(auth.userId, driveTokenFromHeader(req));
   if (ctxr.error) return ctxr.error;
-  return NextResponse.json(await toEntryDTO(updated, ctxr.ctx));
+  return NextResponse.json(await toEntryDTO(updated, found?.media ?? [], ctxr.ctx));
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -77,17 +77,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const ctxr = await resolveStorageCtx(auth.userId, driveTokenFromHeader(req));
   if (ctxr.error) return ctxr.error;
 
-  // Delete the row first (within the owner check); then best-effort storage
-  // cleanup + quota release. Order avoids a live row pointing at deleted bytes.
-  const removed = await deleteOwnedEntry(auth.userId, id);
+  // Collect the post's media (refs + sizes) then delete the row (cascade clears
+  // entry_media). Best-effort byte cleanup + quota release for every media item.
+  const removed = await deleteEntryWithMedia(auth.userId, id);
   if (!removed) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const storage = getStorage();
-  await storage.delete(auth.userId, removed.storageRef, ctxr.ctx).catch(() => {});
-  if (removed.thumbnailRef) {
-    await storage.delete(auth.userId, removed.thumbnailRef, ctxr.ctx).catch(() => {});
+  let freed = 0;
+  for (const m of removed.media) {
+    await storage.delete(auth.userId, m.storageRef, ctxr.ctx).catch(() => {});
+    if (m.thumbnailRef) await storage.delete(auth.userId, m.thumbnailRef, ctxr.ctx).catch(() => {});
+    freed += m.sizeBytes ?? 0;
   }
-  if (removed.sizeBytes) await releaseQuota(auth.userId, removed.sizeBytes);
+  if (freed > 0) await releaseQuota(auth.userId, freed);
 
   return new NextResponse(null, { status: 204 });
 }

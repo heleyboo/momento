@@ -3,7 +3,7 @@ import { getStorage } from "@/lib/storage/get-storage";
 import { LocalStorageAdapter } from "@/lib/storage/local-adapter";
 import { isValidRef } from "@/lib/storage/object-key";
 import { requireUser, isAuthError } from "@/lib/auth/require-user";
-import { findOwnedEntryByRef } from "@/lib/entries/entry-queries";
+import { findOwnedMediaByRef } from "@/lib/entries/media-queries";
 
 // Auth-gated media stream for the `local` provider. Cloud providers (s3/gcs/drive)
 // return signed URLs from getUrl() and do not route through here.
@@ -39,9 +39,9 @@ export async function GET(
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  // DB-backed ownership: the requester must own the entry that holds this ref
-  // (matches either the media or thumbnail ref).
-  const owned = await findOwnedEntryByRef(auth.userId, ref);
+  // DB-backed ownership: the requester must own a media row holding this ref
+  // (matches either the media or thumbnail ref). Covers staged + finalized media.
+  const owned = await findOwnedMediaByRef(auth.userId, ref);
   if (!owned) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }

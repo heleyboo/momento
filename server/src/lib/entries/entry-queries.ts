@@ -1,25 +1,10 @@
-import { and, eq, or, desc, ilike, gte, lte, sql, type SQL } from "drizzle-orm";
+import { and, eq, desc, ilike, gte, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
-import { entries, albums, entryAlbums, users, type Entry, type NewEntry } from "@/db/schema";
+import { entries, entryMedia, albums, entryAlbums, users, type Entry, type NewEntry } from "@/db/schema";
 
-// Entry data access. Ownership predicates live here (single source) so routes
-// can't drift. All reads/writes are user-scoped.
-
-// Matches a ref against either the media or thumbnail storage ref of an owned
-// entry (the media route serves both through the same path).
-export async function findOwnedEntryByRef(userId: string, ref: string): Promise<Entry | null> {
-  const [row] = await db
-    .select()
-    .from(entries)
-    .where(
-      and(
-        eq(entries.userId, userId),
-        or(eq(entries.storageRef, ref), eq(entries.thumbnailRef, ref)),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
-}
+// Entry (post) data access. Ownership predicates live here (single source) so
+// routes can't drift. All reads/writes are user-scoped. Per-media access +
+// ownership-by-ref live in media-queries.ts.
 
 export interface EntryFilters {
   q?: string; // caption keyword (trigram ILIKE)
@@ -44,7 +29,12 @@ export async function searchEntries(
     const literal = filters.q.replace(/[\\%_]/g, "\\$&");
     conds.push(ilike(entries.caption, `%${literal}%`));
   }
-  if (filters.kind) conds.push(eq(entries.kind, filters.kind));
+  // Kind is per-media now: match posts that contain at least one media of the kind.
+  if (filters.kind) {
+    conds.push(
+      sql`EXISTS (SELECT 1 FROM ${entryMedia} m WHERE m.entry_id = ${entries.id} AND m.kind = ${filters.kind})`,
+    );
+  }
   if (filters.cat) conds.push(eq(entries.category, filters.cat));
   if (filters.from) conds.push(gte(entries.takenAt, filters.from));
   if (filters.to) conds.push(lte(entries.takenAt, filters.to));
