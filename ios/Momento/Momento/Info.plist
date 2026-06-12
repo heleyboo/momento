@@ -7,12 +7,6 @@
 	<string>Momento dùng camera để chụp ảnh và quay video cho nhật ký của bạn.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Momento dùng micro để thu âm thanh khi quay video.</string>
-	<!-- Dev only: allow cleartext HTTP to the Mac's LAN IP backend. Remove before shipping. -->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
