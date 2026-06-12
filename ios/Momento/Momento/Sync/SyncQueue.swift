@@ -61,7 +61,11 @@ final class SyncQueue {
             clientEntryId: entry.clientEntryId,
             kind: entry.kind,
             takenAt: entry.takenAt,
-            caption: entry.captionSource == "user" ? entry.caption : nil,
+            // Send the caption we already generated (AI or user). Sending nil only
+            // when truly absent (offline capture) lets the server fill it in — this
+            // avoids a redundant server-side caption call and, crucially, stops a
+            // failed server regeneration from blanking a good local caption.
+            caption: entry.caption,
             captionSource: entry.captionSource,
             category: entry.category,
             location: entry.location,
@@ -77,10 +81,11 @@ final class SyncQueue {
             entry.serverId = dto.id
             entry.remoteMediaUrl = dto.mediaUrl
             entry.remoteThumbnailUrl = dto.thumbnailUrl
-            // Conflict rule: only adopt the AI caption when the user didn't write one.
+            // Adopt server-filled caption only for AI entries and only when the
+            // server actually returned one — never overwrite a good caption with nil.
             if entry.captionSource == "ai" {
-                entry.caption = dto.caption
-                entry.category = dto.category
+                if let c = dto.caption, !c.isEmpty { entry.caption = c }
+                if let cat = dto.category { entry.category = cat }
             }
             entry.syncState = .done
             try? context.save()
