@@ -26,15 +26,16 @@ struct MainTabView: View {
     @State private var showCamera = false
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            content
-            tabBar
-        }
-        .background(palette.bg.ignoresSafeArea())
-        .fullScreenCover(isPresented: $showCamera) {
-            ComposerView(onFinished: { showCamera = false })
-                .momentoThemeAuto()
-        }
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(palette.bg.ignoresSafeArea())
+            // safeAreaInset insets each screen's scroll content above the bar, so
+            // content scrolls fully and nothing hides behind the tab bar.
+            .safeAreaInset(edge: .bottom, spacing: 0) { tabBar }
+            .fullScreenCover(isPresented: $showCamera) {
+                ComposerView(onFinished: { showCamera = false })
+                    .momentoThemeAuto()
+            }
     }
 
     @ViewBuilder private var content: some View {

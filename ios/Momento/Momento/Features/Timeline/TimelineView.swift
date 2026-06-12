@@ -35,7 +35,7 @@ struct TimelineView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 110)
+                .padding(.bottom, 16)
             }
             .background(palette.bg.ignoresSafeArea())
             .navigationDestination(for: LocalEntry.self) { EntryDetailView(entry: $0) }
