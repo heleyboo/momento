@@ -45,13 +45,7 @@ export const entries = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     // Idempotency key = the iOS SwiftData local UUID; kills duplicate-entry replays.
     clientEntryId: uuid("client_entry_id").notNull(),
-    // Legacy single-media columns — nullable during the multi-media transition
-    // (media now lives in entry_media); dropped in the contract migration.
-    storageProvider: storageProvider("storage_provider"),
-    storageRef: text("storage_ref"),
-    thumbnailRef: text("thumbnail_ref"),
-    kind: mediaKind("kind"),
-    // Post total size in bytes — drives quota release on delete.
+    // Post total size in bytes (sum of its media) — drives quota release on delete.
     sizeBytes: bigint("size_bytes", { mode: "number" }),
     caption: text("caption"),
     // Distinguishes untouched AI caption from a deliberate user edit (incl. empty).
