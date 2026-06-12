@@ -32,7 +32,7 @@ struct MainTabView: View {
         }
         .background(palette.bg.ignoresSafeArea())
         .fullScreenCover(isPresented: $showCamera) {
-            CameraView(onFinished: { showCamera = false })
+            ComposerView(onFinished: { showCamera = false })
                 .momentoThemeAuto()
         }
     }

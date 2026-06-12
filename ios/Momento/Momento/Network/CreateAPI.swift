@@ -6,24 +6,20 @@ struct CaptionResult: Decodable {
     let category: String
 }
 
-// Parameters for creating an entry. clientEntryId is the idempotency key.
-struct CreateEntryParams {
+// One media to stage (uploaded independently before the post is finalized).
+struct StageMediaParams {
     let clientEntryId: UUID
-    let kind: String
-    let takenAt: Date
-    let caption: String?
-    let captionSource: String
-    let category: String?
-    let location: String?
-    let durationSec: Double?
+    let mediaClientId: UUID
+    let kind: String           // "photo" | "video"
     let mediaData: Data
-    let mediaExt: String       // "jpg" | "mp4" | ...
+    let mediaExt: String       // "jpg" | "mov" | ...
     let mediaMime: String
     let posterData: Data
+    let durationSec: Double?
 }
 
-// Capture-time caption + entry creation (multipart upload). Drive token (when
-// present) is forwarded so the backend can use the user's Drive under provider=drive.
+// Per-media upload + post finalize. Drive token (when present) is forwarded so
+// the backend can use the user's Drive under provider=drive.
 struct CreateAPI {
     let client: APIClient
     let session: SessionStore
@@ -41,20 +37,17 @@ struct CreateAPI {
         return try JSONDecoder().decode(CaptionResult.self, from: data)
     }
 
-    func create(_ p: CreateEntryParams) async throws -> EntryDTO {
+    /// Stage one media (idempotent on mediaClientId). Bytes only — no post yet.
+    func stageMedia(_ p: StageMediaParams) async throws {
         let boundary = "Boundary-\(UUID().uuidString)"
-        var req = client.makeRequest("/api/entries", method: "POST")
+        var req = client.makeRequest("/api/media", method: "POST")
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var meta: [String: Any] = [
             "clientEntryId": p.clientEntryId.uuidString.lowercased(),
+            "mediaClientId": p.mediaClientId.uuidString.lowercased(),
             "kind": p.kind,
-            "takenAt": ISO8601DateFormatter().string(from: p.takenAt),
-            "captionSource": p.captionSource,
         ]
-        if let caption = p.caption { meta["caption"] = caption }
-        if let category = p.category { meta["category"] = category }
-        if let location = p.location { meta["location"] = location }
         if let dur = p.durationSec { meta["durationSec"] = dur }
         let metaJSON = String(data: try JSONSerialization.data(withJSONObject: meta), encoding: .utf8) ?? "{}"
 
@@ -67,7 +60,31 @@ struct CreateAPI {
         }
         body.appendString("--\(boundary)--\r\n")
         req.httpBody = body
+        _ = try await client.raw(req)
+    }
 
+    /// Finalize a post from already-staged media (ordered → position by index).
+    func finalize(
+        clientEntryId: UUID,
+        caption: String?,
+        captionSource: String,
+        category: String?,
+        takenAt: Date,
+        location: String?,
+        mediaClientIds: [UUID]
+    ) async throws -> EntryDTO {
+        var req = client.makeRequest("/api/entries", method: "POST")
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: Any] = [
+            "clientEntryId": clientEntryId.uuidString.lowercased(),
+            "captionSource": captionSource,
+            "takenAt": ISO8601DateFormatter().string(from: takenAt),
+            "media": mediaClientIds.map { $0.uuidString.lowercased() },
+        ]
+        if let caption { body["caption"] = caption }
+        if let category { body["category"] = category }
+        if let location { body["location"] = location }
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let data = try await client.raw(req)
         return try JSONDecoder().decode(EntryDTO.self, from: data)
     }

@@ -15,16 +15,21 @@ export interface AlbumSummaryRow {
 export async function albumSummaries(userId: string): Promise<AlbumSummaryRow[]> {
   // array_agg(... ORDER BY taken_at DESC)[1] picks the most recent entry per
   // category as the cover. user_id bound as a parameter.
+  // Cover = the position-0 media of the most recent entry per category.
   const res = await db.execute(sql`
     SELECT
-      category,
+      e.category,
       count(*)::int AS count,
-      (array_agg(id ORDER BY taken_at DESC))[1] AS cover_entry_id,
-      (array_agg(thumbnail_ref ORDER BY taken_at DESC))[1] AS cover_thumbnail_ref,
-      (array_agg(storage_ref ORDER BY taken_at DESC))[1] AS cover_storage_ref
-    FROM entries
-    WHERE user_id = ${userId} AND category IS NOT NULL
-    GROUP BY category
+      (array_agg(e.id ORDER BY e.taken_at DESC))[1] AS cover_entry_id,
+      (array_agg(cm.thumbnail_ref ORDER BY e.taken_at DESC))[1] AS cover_thumbnail_ref,
+      (array_agg(cm.storage_ref ORDER BY e.taken_at DESC))[1] AS cover_storage_ref
+    FROM entries e
+    LEFT JOIN LATERAL (
+      SELECT thumbnail_ref, storage_ref FROM entry_media m
+      WHERE m.entry_id = e.id ORDER BY m.position ASC LIMIT 1
+    ) cm ON true
+    WHERE e.user_id = ${userId} AND e.category IS NOT NULL
+    GROUP BY e.category
     ORDER BY count DESC
   `);
 

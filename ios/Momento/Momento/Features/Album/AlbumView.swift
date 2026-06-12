@@ -65,7 +65,7 @@ struct AlbumView: View {
 
     private func cell(_ album: Album) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            EntryImage(entry: album.cover)
+            EntryImage(media: album.cover.cover)
                 .aspectRatio(1, contentMode: .fill)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 18))

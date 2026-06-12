@@ -3,7 +3,8 @@ import SwiftUI
 // Full-screen capture overlay (black). Photo or video mode; on capture it
 // extracts the poster frame and hands a CapturedMedia to the Review step.
 struct CameraView: View {
-    // Called when the flow finishes (user closes, or saves an entry).
+    // Hands one captured item back, then the camera closes.
+    let onCaptured: (CapturedMedia) -> Void
     let onFinished: () -> Void
 
     @Environment(\.palette) private var palette
@@ -11,7 +12,6 @@ struct CameraView: View {
     @State private var mode: Mode = .photo
     @State private var flashFrame = false
     @State private var busy = false
-    @State private var capturedMedia: CapturedMedia?
 
     enum Mode { case photo, video }
 
@@ -32,13 +32,6 @@ struct CameraView: View {
         }
         .task { await controller.configure() }
         .onDisappear { controller.stop() }
-        .fullScreenCover(item: $capturedMedia) { media in
-            ReviewView(captured: media, onSaved: {
-                capturedMedia = nil
-                onFinished()
-            })
-            .momentoThemeAuto()
-        }
     }
 
     private var topBar: some View {
@@ -124,8 +117,9 @@ struct CameraView: View {
             defer { busy = false; flashFrame = false }
             guard let data = try? await controller.capturePhoto(),
                   let poster = PosterFrame.fromImage(data) else { return }
-            capturedMedia = CapturedMedia(kind: .photo, mediaData: data, mediaExt: "jpg",
-                                          posterData: poster, durationSec: nil)
+            onCaptured(CapturedMedia(kind: .photo, mediaData: data, mediaExt: "jpg",
+                                     posterData: poster, durationSec: nil))
+            onFinished()
         }
     }
 
@@ -135,8 +129,9 @@ struct CameraView: View {
                 guard let url = try? await controller.stopRecording(),
                       let (poster, dur) = await PosterFrame.fromVideo(url),
                       let data = try? Data(contentsOf: url) else { return }
-                capturedMedia = CapturedMedia(kind: .video, mediaData: data, mediaExt: "mov",
-                                              posterData: poster, durationSec: dur)
+                onCaptured(CapturedMedia(kind: .video, mediaData: data, mediaExt: "mov",
+                                         posterData: poster, durationSec: dur))
+                onFinished()
             }
         } else {
             controller.startRecording()

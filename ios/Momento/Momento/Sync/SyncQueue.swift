@@ -1,10 +1,10 @@
 import Foundation
 import SwiftData
 
-// Drives offline-first upload. Captured entries persist locally as `.pending`;
-// this queue uploads them when the network allows, transitioning the state and
-// folding in the server's caption. Backend idempotency (clientEntryId) makes
-// re-sends safe, so crash recovery simply re-enqueues stuck `.uploading` rows.
+// Drives offline-first upload. A post (LocalEntry) persists locally with its
+// media (LocalMedia) the moment it's composed; this queue stages each media
+// independently then finalizes the post. Backend idempotency (clientEntryId +
+// mediaClientId) makes re-sends safe, so crash recovery re-enqueues stuck rows.
 @MainActor
 @Observable
 final class SyncQueue {
@@ -21,12 +21,41 @@ final class SyncQueue {
         self.api = api
     }
 
-    // On launch, any row left `.uploading` (app killed mid-upload) → re-enqueue.
+    // On launch: (1) backfill legacy single-media entries into a LocalMedia
+    // child; (2) re-enqueue any media stuck in `.uploading` (app killed mid-send).
     func recoverOnLaunch() {
-        let d = FetchDescriptor<LocalEntry>(predicate: #Predicate { $0.syncStateRaw == "uploading" })
-        guard let stuck = try? context.fetch(d), !stuck.isEmpty else { return }
-        for e in stuck { e.syncState = .pending }
+        backfillLegacy()
+        let d = FetchDescriptor<LocalMedia>(predicate: #Predicate { $0.uploadStateRaw == "uploading" })
+        if let stuck = try? context.fetch(d) {
+            for m in stuck { m.uploadState = .pending }
+        }
         try? context.save()
+    }
+
+    // One-time migration: a pre-multi-media LocalEntry carries its media inline.
+    // Wrap it in a single LocalMedia so the rest of the app is media-only.
+    private func backfillLegacy() {
+        let d = FetchDescriptor<LocalEntry>(predicate: #Predicate { $0.localMediaPath != nil })
+        guard let legacy = try? context.fetch(d) else { return }
+        for e in legacy where e.media.isEmpty {
+            let m = LocalMedia(
+                position: 0,
+                kind: e.kind ?? "photo",
+                localMediaPath: e.localMediaPath,
+                localPosterPath: e.localPosterPath,
+                thumbnailData: e.thumbnailData,
+                durationSec: e.durationSec,
+                remoteMediaUrl: e.remoteMediaUrl,
+                remoteThumbnailUrl: e.remoteThumbnailUrl,
+                uploadState: e.syncState == .done ? .done : .pending
+            )
+            m.entry = e
+            context.insert(m)
+            // Clear the legacy fields so the backfill never runs twice.
+            e.localMediaPath = nil
+            e.localPosterPath = nil
+            e.thumbnailData = nil
+        }
     }
 
     func syncPending() async {
@@ -35,62 +64,91 @@ final class SyncQueue {
         defer { running = false }
 
         let d = FetchDescriptor<LocalEntry>(
-            predicate: #Predicate { $0.syncStateRaw == "pending" || $0.syncStateRaw == "error" },
+            predicate: #Predicate { $0.syncStateRaw != "done" },
             sortBy: [SortDescriptor(\.createdAt)]
         )
-        guard let items = try? context.fetch(d) else { return }
-        for entry in items {
+        guard let posts = try? context.fetch(d) else { return }
+        for post in posts {
             guard monitor.canUpload(wifiOnly: wifiOnly) else { break }
-            await upload(entry)
+            await uploadPost(post)
         }
     }
 
-    private func upload(_ entry: LocalEntry) async {
-        guard let mediaData = MediaStore.read(entry.localMediaPath),
-              let posterData = MediaStore.read(entry.localPosterPath) else {
-            entry.syncState = .error
+    private func uploadPost(_ post: LocalEntry) async {
+        let items = post.sortedMedia
+        guard !items.isEmpty else { return }
+
+        // Stage each media that isn't done yet.
+        for media in items where media.uploadState != .done {
+            guard monitor.canUpload(wifiOnly: wifiOnly) else { return }
+            await stage(media, clientEntryId: post.clientEntryId)
+        }
+
+        // All media uploaded → finalize the post.
+        guard items.allSatisfy({ $0.uploadState == .done }) else {
+            post.syncState = .error
             try? context.save()
             return
         }
 
-        entry.syncState = .uploading
-        try? context.save()
-
-        let (ext, mime) = entry.isVideo ? ("mov", "video/quicktime") : ("jpg", "image/jpeg")
-        let params = CreateEntryParams(
-            clientEntryId: entry.clientEntryId,
-            kind: entry.kind,
-            takenAt: entry.takenAt,
-            // Send the caption we already generated (AI or user). Sending nil only
-            // when truly absent (offline capture) lets the server fill it in — this
-            // avoids a redundant server-side caption call and, crucially, stops a
-            // failed server regeneration from blanking a good local caption.
-            caption: entry.caption,
-            captionSource: entry.captionSource,
-            category: entry.category,
-            location: entry.location,
-            durationSec: entry.durationSec,
-            mediaData: mediaData,
-            mediaExt: ext,
-            mediaMime: mime,
-            posterData: posterData
-        )
-
         do {
-            let dto = try await api.create(params)
-            entry.serverId = dto.id
-            entry.remoteMediaUrl = dto.mediaUrl
-            entry.remoteThumbnailUrl = dto.thumbnailUrl
-            // Adopt server-filled caption only for AI entries and only when the
-            // server actually returned one — never overwrite a good caption with nil.
-            if entry.captionSource == "ai" {
-                if let c = dto.caption, !c.isEmpty { entry.caption = c }
-                if let cat = dto.category { entry.category = cat }
+            let dto = try await api.finalize(
+                clientEntryId: post.clientEntryId,
+                // Send the caption we have; nil only if truly absent (server fills in).
+                caption: post.caption,
+                captionSource: post.captionSource,
+                category: post.category,
+                takenAt: post.takenAt,
+                location: post.location,
+                mediaClientIds: items.map { $0.mediaClientId }
+            )
+            post.serverId = dto.id
+            // Adopt server-filled caption only for AI posts and only when present.
+            if post.captionSource == "ai" {
+                if let c = dto.caption, !c.isEmpty { post.caption = c }
+                if let cat = dto.category { post.category = cat }
             }
-            entry.syncState = .done
+            // Map remote URLs back onto each media by position.
+            for m in dto.media {
+                if let local = items.first(where: { $0.position == m.position }) {
+                    local.remoteMediaUrl = m.url
+                    local.remoteThumbnailUrl = m.thumbnailUrl
+                }
+            }
+            post.syncState = .done
             try? context.save()
         } catch {
-            entry.syncState = .error
+            post.syncState = .error
+            try? context.save()
+        }
+    }
+
+    private func stage(_ media: LocalMedia, clientEntryId: UUID) async {
+        guard let mediaData = MediaStore.read(media.localMediaPath),
+              let posterData = MediaStore.read(media.localPosterPath) else {
+            media.uploadState = .error
+            try? context.save()
+            return
+        }
+        media.uploadState = .uploading
+        try? context.save()
+
+        let (ext, mime) = media.isVideo ? ("mov", "video/quicktime") : ("jpg", "image/jpeg")
+        do {
+            try await api.stageMedia(StageMediaParams(
+                clientEntryId: clientEntryId,
+                mediaClientId: media.mediaClientId,
+                kind: media.kind,
+                mediaData: mediaData,
+                mediaExt: ext,
+                mediaMime: mime,
+                posterData: posterData,
+                durationSec: media.durationSec
+            ))
+            media.uploadState = .done
+            try? context.save()
+        } catch {
+            media.uploadState = .error
             try? context.save()
         }
     }

@@ -5,21 +5,13 @@ import SwiftUI
 struct EntryDetailView: View {
     let entry: LocalEntry
     @Environment(\.palette) private var palette
-    @State private var showPlayer = false
+    @State private var playMedia: LocalMedia?
+    @State private var page = 0
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                EntryImage(entry: entry, preferFull: true)
-                    .frame(height: 392).frame(maxWidth: .infinity).clipped()
-                    .overlay(alignment: .center) {
-                        if entry.isVideo {
-                            Image(systemName: "play.circle.fill")
-                                .font(.system(size: 66)).foregroundStyle(.white.opacity(0.9))
-                        }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture { if entry.isVideo { showPlayer = true } }
+                carousel
 
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
@@ -44,7 +36,30 @@ struct EntryDetailView: View {
         .background(palette.bg.ignoresSafeArea())
         .navigationTitle("Khoảnh khắc")
         .navigationBarTitleDisplayMode(.inline)
-        .fullScreenCover(isPresented: $showPlayer) { VideoPlayerView(entry: entry) }
+        .fullScreenCover(item: $playMedia) { VideoPlayerView(media: $0) }
+    }
+
+    // Swipeable gallery over the post's media; tap a video to play it.
+    private var carousel: some View {
+        let items = entry.sortedMedia
+        return TabView(selection: $page) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { idx, media in
+                EntryImage(media: media, preferFull: true)
+                    .frame(maxWidth: .infinity).frame(height: 392).clipped()
+                    .overlay(alignment: .center) {
+                        if media.isVideo {
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 66)).foregroundStyle(.white.opacity(0.9))
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { if media.isVideo { playMedia = media } }
+                    .tag(idx)
+            }
+        }
+        .frame(height: 392)
+        .tabViewStyle(.page(indexDisplayMode: items.count > 1 ? .automatic : .never))
+        .indexViewStyle(.page(backgroundDisplayMode: .interactive))
     }
 
     private var metaCard: some View {

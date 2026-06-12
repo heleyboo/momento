@@ -13,7 +13,17 @@ struct MomentoApp: App {
     @State private var sync: SyncQueue
 
     init() {
-        let container = try! ModelContainer(for: LocalEntry.self)
+        // Adding LocalMedia is an additive schema change (lightweight migration).
+        // If the store can't open (corrupt/incompatible), reset rather than crash
+        // on launch — synced posts re-pull from the server.
+        let container: ModelContainer
+        do {
+            container = try ModelContainer(for: LocalEntry.self, LocalMedia.self)
+        } catch {
+            let url = URL.applicationSupportDirectory.appending(path: "default.store")
+            try? FileManager.default.removeItem(at: url)
+            container = try! ModelContainer(for: LocalEntry.self, LocalMedia.self)
+        }
         let app = AppState()
         let sync = SyncQueue(context: container.mainContext, monitor: app.monitor, api: app.create)
         self.container = container

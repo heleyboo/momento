@@ -31,7 +31,7 @@ struct EntryCardView: View {
     }
 
     private var thumbnail: some View {
-        EntryImage(entry: entry)
+        EntryImage(media: entry.cover)
             .frame(width: 72, height: 72)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .bottomTrailing) {
@@ -39,6 +39,14 @@ struct EntryCardView: View {
                     Image(systemName: "play.fill")
                         .font(.system(size: 9)).foregroundStyle(.white)
                         .padding(4).background(.black.opacity(0.55), in: Circle()).padding(4)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if entry.mediaCount > 1 {
+                    Text("+\(entry.mediaCount - 1)")
+                        .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(.black.opacity(0.6), in: Capsule()).padding(4)
                 }
             }
     }

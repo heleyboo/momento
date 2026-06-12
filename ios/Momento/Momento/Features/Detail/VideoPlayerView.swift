@@ -6,7 +6,7 @@ import AVKit
 // links get the session Bearer header (the media route is auth-gated), absolute
 // links (s3/gcs/drive signed URLs) are played as-is.
 struct VideoPlayerView: View {
-    let entry: LocalEntry
+    let media: LocalMedia
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer?
@@ -45,11 +45,11 @@ struct VideoPlayerView: View {
 
     private func resolveAsset() -> AVURLAsset? {
         // On-device original first — survives offline, needs no auth.
-        if let name = entry.localMediaPath {
+        if let name = media.localMediaPath {
             let url = MediaStore.url(for: name)
             if FileManager.default.fileExists(atPath: url.path) { return AVURLAsset(url: url) }
         }
-        guard let remote = entry.remoteMediaUrl else { return nil }
+        guard let remote = media.remoteMediaUrl else { return nil }
         if remote.hasPrefix("/") {
             guard let url = URL(string: AppConfig.apiBaseURL.absoluteString + remote) else { return nil }
             var headers: [String: String] = [:]

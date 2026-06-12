@@ -1,16 +1,16 @@
 import SwiftUI
 import UIKit
 
-// Renders an entry's image, preferring local bytes (instant, offline) then the
+// Renders one media's image, preferring local bytes (instant, offline) then the
 // remote URL. `preferFull` picks the original media for the Detail hero;
 // otherwise the thumbnail is used.
 struct EntryImage: View {
-    let entry: LocalEntry
+    let media: LocalMedia?
     var preferFull = false
     var contentMode: ContentMode = .fill
 
     var body: some View {
-        if let data = entry.thumbnailData, let ui = UIImage(data: data) {
+        if let data = media?.thumbnailData, let ui = UIImage(data: data) {
             Image(uiImage: ui).resizable().aspectRatio(contentMode: contentMode)
         } else if let url = remoteURL {
             RemoteImage(urlString: url, contentMode: contentMode)
@@ -20,9 +20,10 @@ struct EntryImage: View {
     }
 
     private var remoteURL: String? {
+        guard let media else { return nil }
         if preferFull {
-            return entry.remoteMediaUrl ?? entry.remoteThumbnailUrl
+            return media.remoteMediaUrl ?? media.remoteThumbnailUrl
         }
-        return entry.remoteThumbnailUrl ?? entry.remoteMediaUrl
+        return media.remoteThumbnailUrl ?? media.remoteMediaUrl
     }
 }

@@ -16,23 +16,31 @@ struct AuthResponse: Codable {
     let user: UserDTO
 }
 
+struct MediaDTO: Codable, Identifiable, Hashable {
+    let id: String
+    let position: Int
+    let kind: String          // "photo" | "video"
+    let url: String
+    let thumbnailUrl: String?
+    let durationSec: Double?
+
+    var isVideo: Bool { kind == "video" }
+}
+
 struct EntryDTO: Codable, Identifiable, Hashable {
     let id: String
     let clientEntryId: String
-    let kind: String          // "photo" | "video"
     let caption: String?
     let captionSource: String // "ai" | "user"
     let category: String?
     let takenAt: String        // ISO 8601
     let location: String?
-    let durationSec: Double?
     let syncStatus: String
-    let mediaUrl: String
-    let thumbnailUrl: String?
+    let media: [MediaDTO]
     let createdAt: String
     let updatedAt: String
 
-    var isVideo: Bool { kind == "video" }
+    var cover: MediaDTO? { media.sorted { $0.position < $1.position }.first }
     var takenDate: Date? { ISO8601DateFormatter().date(from: takenAt) }
 }
 

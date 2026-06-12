@@ -2,11 +2,14 @@ import SwiftUI
 import SwiftData
 import UIKit
 
-// After capture: request an AI caption (when online), let the user edit it and
-// pick a category, then save a local pending entry and kick the sync queue.
+// After composing: request an AI caption from the cover (when online), let the
+// user edit it + pick a category, then save the post (LocalEntry + LocalMedia)
+// and kick the sync queue.
 struct ReviewView: View {
-    let captured: CapturedMedia
+    let drafts: [DraftMedia]
     let onSaved: () -> Void
+
+    private var cover: DraftMedia? { drafts.first }
 
     @Environment(\.palette) private var palette
     @Environment(AppState.self) private var app
@@ -38,13 +41,20 @@ struct ReviewView: View {
 
     private var preview: some View {
         Group {
-            if let ui = UIImage(data: captured.posterData) {
+            if let data = cover?.posterData, let ui = UIImage(data: data) {
                 Image(uiImage: ui).resizable().aspectRatio(contentMode: .fill)
             } else {
                 StripedPlaceholder()
             }
         }
         .frame(height: 260).frame(maxWidth: .infinity).clipped()
+        .overlay(alignment: .bottomTrailing) {
+            if drafts.count > 1 {
+                Text("\(drafts.count) mục").font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white).padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(.black.opacity(0.6), in: Capsule()).padding(10)
+            }
+        }
     }
 
     private var captionSection: some View {
@@ -96,17 +106,18 @@ struct ReviewView: View {
     }
 
     private func requestCaption() async {
+        guard let poster = cover?.posterData else { return }
         captionLoading = true
         defer { captionLoading = false }
         let create = CreateAPI(client: app.api, session: app.session)
         do {
-            let result = try await create.caption(poster: captured.posterData)
+            let result = try await create.caption(poster: poster)
             aiCaption = result.caption
             if caption.isEmpty { caption = result.caption }
             category = result.category
         } catch {
-            // Surface why so caption failures are diagnosable (was silently swallowed).
-            captionError = "Caption lỗi: \(Self.reason(error)) · poster \(captured.posterData.count) B"
+            // Surface why so caption failures are diagnosable.
+            captionError = "Caption lỗi: \(Self.reason(error))"
         }
     }
 
@@ -122,22 +133,28 @@ struct ReviewView: View {
 
     private func save() {
         saving = true
-        let mediaName = try? MediaStore.save(captured.mediaData, ext: captured.mediaExt)
-        let posterName = try? MediaStore.save(captured.posterData, ext: "jpg")
         // Source = "ai" only if the caption is the untouched AI suggestion.
         let source = (!aiCaption.isEmpty && caption == aiCaption) ? "ai" : "user"
-        let entry = LocalEntry(
-            kind: captured.kind == .video ? "video" : "photo",
+        let post = LocalEntry(
             caption: caption.isEmpty ? nil : caption,
             captionSource: source,
             category: category,
-            takenAt: Date(),
-            durationSec: captured.durationSec,
-            localMediaPath: mediaName,
-            localPosterPath: posterName,
-            thumbnailData: captured.posterData
+            takenAt: Date()
         )
-        context.insert(entry)
+        context.insert(post)
+        for (idx, d) in drafts.enumerated() {
+            let media = LocalMedia(
+                mediaClientId: d.id,
+                position: idx,
+                kind: d.kind,
+                localMediaPath: d.mediaPath,
+                localPosterPath: d.posterPath,
+                thumbnailData: d.posterData,
+                durationSec: d.durationSec
+            )
+            media.entry = post
+            context.insert(media)
+        }
         try? context.save()
         Task { await sync.syncPending() }
         onSaved()
