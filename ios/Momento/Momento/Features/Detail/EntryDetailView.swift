@@ -5,6 +5,7 @@ import SwiftUI
 struct EntryDetailView: View {
     let entry: LocalEntry
     @Environment(\.palette) private var palette
+    @State private var showPlayer = false
 
     var body: some View {
         ScrollView {
@@ -17,6 +18,8 @@ struct EntryDetailView: View {
                                 .font(.system(size: 66)).foregroundStyle(.white.opacity(0.9))
                         }
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture { if entry.isVideo { showPlayer = true } }
 
                 VStack(alignment: .leading, spacing: 16) {
                     HStack {
@@ -41,6 +44,7 @@ struct EntryDetailView: View {
         .background(palette.bg.ignoresSafeArea())
         .navigationTitle("Khoảnh khắc")
         .navigationBarTitleDisplayMode(.inline)
+        .fullScreenCover(isPresented: $showPlayer) { VideoPlayerView(entry: entry) }
     }
 
     private var metaCard: some View {
