@@ -11,7 +11,7 @@ struct RootView: View {
             if app.session.isSignedIn {
                 MainTabView()
             } else {
-                SignInView()
+                LoginView()
             }
         }
         .momentoTheme(scheme)
