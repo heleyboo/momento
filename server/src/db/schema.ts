@@ -71,6 +71,47 @@ export const entries = pgTable(
   ],
 );
 
+// --- Entry media -------------------------------------------------------------
+// One post (entries row) has many media. A media row is created at stage time
+// with entry_id NULL (idempotent on user+client_entry_id+media_client_id) and
+// promoted by finalize (sets entry_id + position). user_id is denormalized so
+// ownership for serve/delete never depends on the entries row (whose media
+// columns are being retired).
+export const entryMedia = pgTable(
+  "entry_media",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // Ties media to its post before the entry row exists (stage phase).
+    clientEntryId: uuid("client_entry_id").notNull(),
+    // Client-generated; idempotency key for staging a single media.
+    mediaClientId: uuid("media_client_id").notNull(),
+    // NULL until finalize promotes this media into a post.
+    entryId: uuid("entry_id").references(() => entries.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    kind: mediaKind("kind").notNull(),
+    storageProvider: storageProvider("storage_provider").notNull(),
+    storageRef: text("storage_ref").notNull(),
+    thumbnailRef: text("thumbnail_ref"),
+    durationSec: doublePrecision("duration_sec"),
+    // Not null so quota math (sum on delete) never yields NULL.
+    sizeBytes: bigint("size_bytes", { mode: "number" }).notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Idempotent stage: one media per (user, post, client media id).
+    uniqueIndex("entry_media_stage_uq").on(t.userId, t.clientEntryId, t.mediaClientId),
+    // No duplicate position within a finalized post (NULL entry_id rows are
+    // distinct under Postgres NULL semantics, so staged rows aren't constrained).
+    uniqueIndex("entry_media_entry_position_uq").on(t.entryId, t.position),
+    // Ownership-by-ref lookups for the media-serve + delete paths.
+    index("entry_media_user_ref_idx").on(t.userId, t.storageRef),
+    index("entry_media_entry_position_idx").on(t.entryId, t.position),
+  ],
+);
+
 // --- Albums ------------------------------------------------------------------
 export const albums = pgTable("albums", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -148,4 +189,6 @@ export const refreshTokens = pgTable(
 
 export type Entry = typeof entries.$inferSelect;
 export type NewEntry = typeof entries.$inferInsert;
+export type EntryMedia = typeof entryMedia.$inferSelect;
+export type NewEntryMedia = typeof entryMedia.$inferInsert;
 export type User = typeof users.$inferSelect;
