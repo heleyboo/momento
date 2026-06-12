@@ -41,7 +41,14 @@ final class APIClient {
             return try await raw(request, retrying: false)
         }
         guard (200..<300).contains(http.statusCode) else {
-            throw http.statusCode == 401 ? APIError.unauthorized : APIError.http(http.statusCode)
+            if http.statusCode == 401 {
+                // Unrecoverable 401 (no/expired refresh — e.g. the backend was
+                // switched and the stored token is now invalid): drop the dead
+                // session so the app returns to login instead of silently erroring.
+                if session.accessToken != nil { await MainActor.run { session.signOut() } }
+                throw APIError.unauthorized
+            }
+            throw APIError.http(http.statusCode)
         }
         return data
     }
