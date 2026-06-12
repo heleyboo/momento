@@ -5,8 +5,10 @@ import Foundation
 // LAN IP, not localhost.
 enum AppConfig {
     /// Backend base URL. Simulator can use localhost; a device needs the Mac's
-    /// LAN IP (must share the same Wi-Fi). Update this if your IP changes.
-    static let apiBaseURL = URL(string: "http://192.168.2.31:3000")!
+    /// LAN IP (must share the same Wi-Fi). The Mac IP changes when you switch
+    /// networks — re-check with `ipconfig getifaddr en0` and update this.
+    /// (Alternative that survives IP changes: "http://Hoans-MacBook-Pro.local:3000".)
+    static let apiBaseURL = URL(string: "http://192.168.88.173:3000")!
 
     /// iOS OAuth client ID from Google Cloud Console.
     static let googleClientID = "892406728763-5bgos3th00pkahij6rmcls9jmqs7t43t.apps.googleusercontent.com"

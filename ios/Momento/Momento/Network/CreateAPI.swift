@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 struct CaptionResult: Decodable {
     let caption: String
@@ -28,9 +29,14 @@ struct CreateAPI {
     let session: SessionStore
 
     func caption(poster: Data) async throws -> CaptionResult {
+        // Captioning only needs a small frame; send a downscaled copy so the
+        // upload stays tiny (a full-res poster can stall the request on slower
+        // links). The stored poster/thumbnail keeps its original resolution.
+        let small = UIImage(data: poster)?.scaledDown(maxDim: 640)
+            .jpegData(compressionQuality: 0.5) ?? poster
         var req = client.makeRequest("/api/caption", method: "POST")
         req.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
-        req.httpBody = poster
+        req.httpBody = small
         let data = try await client.raw(req)
         return try JSONDecoder().decode(CaptionResult.self, from: data)
     }

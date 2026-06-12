@@ -16,6 +16,7 @@ struct ReviewView: View {
     @State private var caption = ""
     @State private var aiCaption = ""
     @State private var captionLoading = false
+    @State private var captionError: String?
     @State private var category = "Đời thường"
     @State private var saving = false
 
@@ -67,6 +68,10 @@ struct ReviewView: View {
                     Text("Caption sẽ được tạo khi có mạng.")
                         .font(.system(size: 12)).foregroundStyle(palette.ter)
                 }
+                if let captionError {
+                    Text(captionError)
+                        .font(.system(size: 12)).foregroundStyle(.red)
+                }
             }
         }
     }
@@ -94,10 +99,24 @@ struct ReviewView: View {
         captionLoading = true
         defer { captionLoading = false }
         let create = CreateAPI(client: app.api, session: app.session)
-        if let result = try? await create.caption(poster: captured.posterData) {
+        do {
+            let result = try await create.caption(poster: captured.posterData)
             aiCaption = result.caption
             if caption.isEmpty { caption = result.caption }
             category = result.category
+        } catch {
+            // Surface why so caption failures are diagnosable (was silently swallowed).
+            captionError = "Caption lỗi: \(Self.reason(error)) · poster \(captured.posterData.count) B"
+        }
+    }
+
+    private static func reason(_ error: Error) -> String {
+        switch error {
+        case APIError.unauthorized: return "401 (token hết hạn?)"
+        case APIError.http(let code): return "HTTP \(code)"
+        case APIError.decoding: return "phản hồi không hợp lệ"
+        case APIError.transport(let e): return "mạng: \(e.localizedDescription)"
+        default: return error.localizedDescription
         }
     }
 

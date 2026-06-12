@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Required to request camera/mic access; iOS terminates the app without these. -->
+	<key>NSCameraUsageDescription</key>
+	<string>Momento dùng camera để chụp ảnh và quay video cho nhật ký của bạn.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Momento dùng micro để thu âm thanh khi quay video.</string>
 	<!-- Dev only: allow cleartext HTTP to the Mac's LAN IP backend. Remove before shipping. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
