@@ -27,11 +27,11 @@ struct MediaPagerView: View {
             .tabViewStyle(.page(indexDisplayMode: media.count > 1 ? .always : .never))
             .indexViewStyle(.page(backgroundDisplayMode: .interactive))
         }
-        // Swipe up to close the viewer. simultaneousGesture so horizontal paging
-        // still works; only a clearly-vertical upward flick dismisses.
+        // Swipe up or down to close the viewer. simultaneousGesture so horizontal
+        // paging still works; only a clearly-vertical flick dismisses.
         .simultaneousGesture(
             DragGesture(minimumDistance: 24).onEnded { v in
-                if v.translation.height < -80, abs(v.translation.height) > abs(v.translation.width) {
+                if abs(v.translation.height) > 80, abs(v.translation.height) > abs(v.translation.width) {
                     dismiss()
                 }
             }
