@@ -22,6 +22,8 @@ export interface EntryDTO {
   category: string | null;
   takenAt: string;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   syncStatus: string;
   media: MediaDTO[];
   createdAt: string;
@@ -52,6 +54,8 @@ export async function toEntryDTO(
     category: entry.category,
     takenAt: entry.takenAt.toISOString(),
     location: entry.location,
+    latitude: entry.latitude,
+    longitude: entry.longitude,
     syncStatus: entry.syncStatus,
     media: mediaDtos,
     createdAt: entry.createdAt.toISOString(),

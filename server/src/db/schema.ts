@@ -53,6 +53,9 @@ export const entries = pgTable(
     category: text("category"),
     takenAt: timestamp("taken_at", { withTimezone: true }).notNull(),
     location: text("location"),
+    // Optional geotag coordinates (drives the memories map).
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
     durationSec: doublePrecision("duration_sec"),
     syncStatus: syncStatus("sync_status").notNull().default("done"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

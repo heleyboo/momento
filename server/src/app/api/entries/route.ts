@@ -63,6 +63,8 @@ const finalizeSchema = z.object({
   captionSource: z.enum(["ai", "user"]).optional(),
   category: z.string().max(40).optional(),
   location: z.string().max(300).optional(),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   // Ordered list of staged mediaClientIds — array index = position. 1..20.
   media: z.array(z.string().uuid()).min(1).max(20),
 });
@@ -116,6 +118,8 @@ export async function POST(req: NextRequest) {
         category,
         takenAt: new Date(data.takenAt),
         location: data.location ?? null,
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
         syncStatus: "done",
       },
       data.media,
