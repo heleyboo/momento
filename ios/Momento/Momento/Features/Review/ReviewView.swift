@@ -112,11 +112,16 @@ struct ReviewView: View {
 
     private var saveBar: some View {
         Button(action: save) {
-            Text(saving ? "Đang lưu…" : "Lưu khoảnh khắc")
-                .font(.system(size: 16, weight: .semibold))
-                .frame(maxWidth: .infinity).padding(.vertical, 15)
-                .background(RoundedRectangle(cornerRadius: 16).fill(palette.accent))
-                .foregroundStyle(palette.accentText)
+            HStack(spacing: 8) {
+                if saving {
+                    ProgressView().tint(palette.accentText)
+                }
+                Text(saving ? "Đang lưu…" : "Lưu khoảnh khắc")
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            .frame(maxWidth: .infinity).padding(.vertical, 15)
+            .background(RoundedRectangle(cornerRadius: 16).fill(palette.accent.opacity(saving ? 0.7 : 1)))
+            .foregroundStyle(palette.accentText)
         }
         .disabled(saving || captionLoading)
         .padding(16)
@@ -183,6 +188,8 @@ struct ReviewView: View {
             try? context.save()
             Haptics.success()
             await sync.syncPending()
+            // Open the new post's detail in the timeline after the composer closes.
+            app.pendingDetail = post
             onSaved()
         }
     }

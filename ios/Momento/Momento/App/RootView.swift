@@ -22,6 +22,7 @@ enum MomentoTab: Hashable { case timeline, album, search, settings }
 
 struct MainTabView: View {
     @Environment(\.palette) private var palette
+    @Environment(AppState.self) private var app
     @State private var tab: MomentoTab = .timeline
     @State private var showCamera = false
 
@@ -39,6 +40,10 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $showCamera) {
             ComposerView(onFinished: { showCamera = false })
                 .momentoThemeAuto()
+        }
+        // A just-saved post opens its detail on the timeline tab.
+        .onChange(of: app.pendingDetail?.clientEntryId) { _, id in
+            if id != nil { tab = .timeline }
         }
     }
 

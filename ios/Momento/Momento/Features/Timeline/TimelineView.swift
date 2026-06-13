@@ -10,6 +10,7 @@ struct TimelineView: View {
     @Environment(\.palette) private var palette
     @Query(sort: \LocalEntry.takenAt, order: .reverse) private var entries: [LocalEntry]
     @Namespace private var heroNS
+    @State private var detailEntry: LocalEntry?
 
     private struct DayGroup: Identifiable {
         let id: String
@@ -51,9 +52,23 @@ struct TimelineView: View {
                     NavigationLink { MapMemoriesView() } label: { Image(systemName: "map") }
                 }
             }
+            // Open a just-saved post's detail here (so back returns to the list).
+            .navigationDestination(item: $detailEntry) { post in
+                EntryPagerView(entries: entries,
+                               startIndex: entries.firstIndex { $0.id == post.id } ?? 0)
+            }
+            .onChange(of: app.pendingDetail?.clientEntryId) { _, _ in openPending(app.pendingDetail) }
+            .onAppear { openPending(app.pendingDetail) }
             .refreshable { await refresh() }
             .task { await refresh() }
         }
+    }
+
+    // Push a just-saved post's detail onto this stack (then clear the flag).
+    private func openPending(_ post: LocalEntry?) {
+        guard let post else { return }
+        detailEntry = post
+        app.pendingDetail = nil
     }
 
     // Moments taken on today's month/day in earlier years ("On this day").

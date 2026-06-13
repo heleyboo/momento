@@ -12,6 +12,9 @@ final class AppState {
     let settings: SettingsAPI
     let monitor = NetworkMonitor()
 
+    /// Set after saving a post so the timeline opens its detail (then cleared).
+    var pendingDetail: LocalEntry?
+
     init() {
         let session = SessionStore()
         let api = APIClient(session: session)
