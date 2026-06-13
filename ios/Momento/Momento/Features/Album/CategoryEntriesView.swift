@@ -20,6 +20,7 @@ struct CategoryEntriesView: View {
             }
             .padding(16)
         }
+        .bottomBarInset()
         .background(palette.bg.ignoresSafeArea())
         .navigationTitle(category)
         .navigationBarTitleDisplayMode(.inline)

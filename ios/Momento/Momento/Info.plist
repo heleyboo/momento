@@ -7,6 +7,8 @@
 	<string>Momento dùng camera để chụp ảnh và quay video cho nhật ký của bạn.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Momento dùng micro để thu âm thanh khi quay video.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Momento gắn vị trí vào khoảnh khắc khi bạn bật tính năng này.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

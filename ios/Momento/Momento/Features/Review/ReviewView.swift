@@ -22,6 +22,8 @@ struct ReviewView: View {
     @State private var captionError: String?
     @State private var category = "Đời thường"
     @State private var saving = false
+    @State private var locTask: Task<String?, Never>?
+    @State private var displayLocation: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,6 +32,11 @@ struct ReviewView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     captionSection
                     categorySection
+                    if let displayLocation {
+                        Label(displayLocation, systemImage: "mappin.and.ellipse")
+                            .font(.system(size: 13.5, weight: .medium))
+                            .foregroundStyle(palette.sub)
+                    }
                 }
                 .padding(16)
             }
@@ -37,6 +44,16 @@ struct ReviewView: View {
         }
         .background(palette.bg.ignoresSafeArea())
         .task { await requestCaption() }
+        .task { await resolveLocation() }
+    }
+
+    // Geotag the post when the user enabled it: kick off location capture early so
+    // it's ready by save time (save() awaits this task). No-op if off/denied.
+    private func resolveLocation() async {
+        guard let s = try? await app.settings.get(), s.geoTag else { return }
+        let task = Task { await LocationProvider.shared.place() }
+        locTask = task
+        displayLocation = await task.value   // surface it on the Review screen
     }
 
     private var preview: some View {
@@ -133,31 +150,37 @@ struct ReviewView: View {
 
     private func save() {
         saving = true
-        // Source = "ai" only if the caption is the untouched AI suggestion.
-        let source = (!aiCaption.isEmpty && caption == aiCaption) ? "ai" : "user"
-        let post = LocalEntry(
-            caption: caption.isEmpty ? nil : caption,
-            captionSource: source,
-            category: category,
-            takenAt: Date()
-        )
-        context.insert(post)
-        for (idx, d) in drafts.enumerated() {
-            let media = LocalMedia(
-                mediaClientId: d.id,
-                position: idx,
-                kind: d.kind,
-                localMediaPath: d.mediaPath,
-                localPosterPath: d.posterPath,
-                thumbnailData: d.posterData,
-                durationSec: d.durationSec
+        Task { @MainActor in
+            // Wait for the geotag capture (if any) so the post isn't saved before
+            // the location resolves. nil when off/denied/unavailable.
+            let location = await locTask?.value ?? nil
+            // Source = "ai" only if the caption is the untouched AI suggestion.
+            let source = (!aiCaption.isEmpty && caption == aiCaption) ? "ai" : "user"
+            let post = LocalEntry(
+                caption: caption.isEmpty ? nil : caption,
+                captionSource: source,
+                category: category,
+                takenAt: Date(),
+                location: location
             )
-            media.entry = post
-            context.insert(media)
+            context.insert(post)
+            for (idx, d) in drafts.enumerated() {
+                let media = LocalMedia(
+                    mediaClientId: d.id,
+                    position: idx,
+                    kind: d.kind,
+                    localMediaPath: d.mediaPath,
+                    localPosterPath: d.posterPath,
+                    thumbnailData: d.posterData,
+                    durationSec: d.durationSec
+                )
+                media.entry = post
+                context.insert(media)
+            }
+            try? context.save()
+            await sync.syncPending()
+            onSaved()
         }
-        try? context.save()
-        Task { await sync.syncPending() }
-        onSaved()
     }
 }
 

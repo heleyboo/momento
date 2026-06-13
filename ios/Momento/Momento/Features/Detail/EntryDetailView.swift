@@ -36,6 +36,7 @@ struct EntryDetailView: View {
                 .padding(16)
             }
         }
+        .bottomBarInset()
         .background(palette.bg.ignoresSafeArea())
         .navigationTitle("Khoảnh khắc")
         .navigationBarTitleDisplayMode(.inline)

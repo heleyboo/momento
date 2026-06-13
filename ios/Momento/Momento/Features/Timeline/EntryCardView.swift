@@ -58,6 +58,10 @@ struct EntryCardView: View {
                 Circle().fill(palette.ter).frame(width: 3, height: 3)
                 CategoryChip(category: cat)
             }
+            if let loc = entry.location, !loc.isEmpty {
+                Image(systemName: "mappin.and.ellipse").font(.system(size: 10)).foregroundStyle(palette.ter)
+                Text(loc).font(Typo.meta).foregroundStyle(palette.ter).lineLimit(1)
+            }
         }
     }
 
