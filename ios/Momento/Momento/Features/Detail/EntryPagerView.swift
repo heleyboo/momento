@@ -76,6 +76,7 @@ struct EntryPagerView: View {
         entry.category = category
         entry.captionSource = "user"
         try? context.save()
+        Haptics.success()
         return true
     }
 
@@ -92,6 +93,7 @@ struct EntryPagerView: View {
             }
             context.delete(entry)
             try? context.save()
+            Haptics.success()
             dismiss()
         }
     }

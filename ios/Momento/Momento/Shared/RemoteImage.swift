@@ -18,10 +18,12 @@ struct RemoteImage: View {
         Group {
             if let image {
                 Image(uiImage: image).resizable().aspectRatio(contentMode: contentMode)
-            } else {
+            } else if failed {
                 StripedPlaceholder().overlay(alignment: .center) {
-                    if failed { Image(systemName: "photo").foregroundStyle(palette.ter) }
+                    Image(systemName: "photo").foregroundStyle(palette.ter)
                 }
+            } else {
+                StripedPlaceholder().shimmering()   // loading
             }
         }
         .task(id: urlString) { await load() }

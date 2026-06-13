@@ -9,6 +9,7 @@ struct TimelineView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.palette) private var palette
     @Query(sort: \LocalEntry.takenAt, order: .reverse) private var entries: [LocalEntry]
+    @Namespace private var heroNS
 
     private struct DayGroup: Identifiable {
         let id: String
@@ -29,8 +30,10 @@ struct TimelineView: View {
                                 NavigationLink {
                                     EntryPagerView(entries: entries,
                                                    startIndex: entries.firstIndex { $0.id == entry.id } ?? 0)
+                                        .navigationTransition(.zoom(sourceID: entry.id, in: heroNS))
                                 } label: { EntryCardView(entry: entry) }
                                     .buttonStyle(.plain)
+                                    .matchedTransitionSource(id: entry.id, in: heroNS)
                             }
                         } header: {
                             Text(group.label).font(Typo.daySection)

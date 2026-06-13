@@ -181,6 +181,7 @@ struct ReviewView: View {
                 context.insert(media)
             }
             try? context.save()
+            Haptics.success()
             await sync.syncPending()
             onSaved()
         }
