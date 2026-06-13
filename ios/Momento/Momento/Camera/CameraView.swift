@@ -87,10 +87,13 @@ struct CameraView: View {
                 if mode == .photo {
                     Circle().fill(.white).frame(width: 64, height: 64)
                 } else {
-                    RoundedRectangle(cornerRadius: controller.isRecording ? 6 : 9)
-                        .fill(Color(red: 1, green: 0.29, blue: 0.24))
-                        .frame(width: controller.isRecording ? 32 : 60,
-                               height: controller.isRecording ? 32 : 60)
+                    // iOS Camera style: red circle when idle (inset from the ring),
+                    // shrinking to a small rounded square while recording.
+                    RoundedRectangle(cornerRadius: controller.isRecording ? 8 : 31)
+                        .fill(Color(red: 1, green: 0.27, blue: 0.23))
+                        .frame(width: controller.isRecording ? 30 : 62,
+                               height: controller.isRecording ? 30 : 62)
+                        .animation(.spring(duration: 0.28), value: controller.isRecording)
                 }
             }
         }
