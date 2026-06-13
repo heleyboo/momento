@@ -55,7 +55,6 @@ struct AlbumView: View {
             .background(palette.bg.ignoresSafeArea())
             .overlay(alignment: .bottom) { toast }
             .navigationDestination(for: String.self) { CategoryEntriesView(category: $0) }
-            .navigationDestination(for: LocalEntry.self) { EntryDetailView(entry: $0) }
         }
     }
 

@@ -14,7 +14,10 @@ struct CategoryEntriesView: View {
         ScrollView {
             LazyVStack(spacing: 10) {
                 ForEach(items) { entry in
-                    NavigationLink(value: entry) { EntryCardView(entry: entry) }
+                    NavigationLink {
+                        EntryPagerView(entries: items,
+                                       startIndex: items.firstIndex { $0.id == entry.id } ?? 0)
+                    } label: { EntryCardView(entry: entry) }
                         .buttonStyle(.plain)
                 }
             }

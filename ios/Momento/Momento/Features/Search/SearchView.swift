@@ -30,7 +30,6 @@ struct SearchView: View {
             .padding(.top, 8)
             .background(palette.bg.ignoresSafeArea())
             .navigationTitle("Tìm kiếm")
-            .navigationDestination(for: LocalEntry.self) { EntryDetailView(entry: $0) }
         }
     }
 
@@ -83,7 +82,10 @@ struct SearchView: View {
                         .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
                     LazyVStack(spacing: 10) {
                         ForEach(results) { entry in
-                            NavigationLink(value: entry) {
+                            NavigationLink {
+                                EntryPagerView(entries: results,
+                                               startIndex: results.firstIndex { $0.id == entry.id } ?? 0)
+                            } label: {
                                 EntryCardView(entry: entry, highlight: query)
                             }
                             .buttonStyle(.plain)

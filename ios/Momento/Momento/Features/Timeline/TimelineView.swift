@@ -25,7 +25,10 @@ struct TimelineView: View {
                     ForEach(groups) { group in
                         Section {
                             ForEach(group.items) { entry in
-                                NavigationLink(value: entry) { EntryCardView(entry: entry) }
+                                NavigationLink {
+                                    EntryPagerView(entries: entries,
+                                                   startIndex: entries.firstIndex { $0.id == entry.id } ?? 0)
+                                } label: { EntryCardView(entry: entry) }
                                     .buttonStyle(.plain)
                             }
                         } header: {
@@ -39,7 +42,6 @@ struct TimelineView: View {
             }
             .bottomBarInset()
             .background(palette.bg.ignoresSafeArea())
-            .navigationDestination(for: LocalEntry.self) { EntryDetailView(entry: $0) }
             .refreshable { await refresh() }
             .task { await refresh() }
         }
