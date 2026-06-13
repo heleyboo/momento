@@ -12,12 +12,32 @@ struct MapMemoriesView: View {
         entries.filter { $0.latitude != nil && $0.longitude != nil }
     }
 
+    // Start zoomed out enough to show the whole spread of pins (min ~city-level),
+    // not slammed onto a single point.
+    private var initialPosition: MapCameraPosition {
+        let coords = located.compactMap { e -> CLLocationCoordinate2D? in
+            guard let la = e.latitude, let lo = e.longitude else { return nil }
+            return CLLocationCoordinate2D(latitude: la, longitude: lo)
+        }
+        guard !coords.isEmpty else { return .automatic }
+        let lats = coords.map(\.latitude), lngs = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lngs.min()! + lngs.max()!) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: max((lats.max()! - lats.min()!) * 1.6, 0.6),
+            longitudeDelta: max((lngs.max()! - lngs.min()!) * 1.6, 0.6)
+        )
+        return .region(MKCoordinateRegion(center: center, span: span))
+    }
+
     var body: some View {
         Group {
             if located.isEmpty {
                 empty
             } else {
-                Map {
+                Map(initialPosition: initialPosition) {
                     ForEach(located) { entry in
                         Annotation(
                             entry.location ?? "",

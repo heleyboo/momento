@@ -12,6 +12,11 @@ struct EntryCardView: View {
             thumbnail
             VStack(alignment: .leading, spacing: 6) {
                 metaRow
+                if let loc = entry.location, !loc.isEmpty {
+                    Label(loc, systemImage: "mappin.and.ellipse")
+                        .font(.system(size: 12.5)).foregroundStyle(palette.sub)
+                        .lineLimit(1)
+                }
                 Text(captionText)
                     .font(Typo.caption)
                     .foregroundStyle(palette.ink)
@@ -57,10 +62,6 @@ struct EntryCardView: View {
             if let cat = entry.category {
                 Circle().fill(palette.ter).frame(width: 3, height: 3)
                 CategoryChip(category: cat)
-            }
-            if let loc = entry.location, !loc.isEmpty {
-                Image(systemName: "mappin.and.ellipse").font(.system(size: 10)).foregroundStyle(palette.ter)
-                Text(loc).font(Typo.meta).foregroundStyle(palette.ter).lineLimit(1)
             }
         }
     }
