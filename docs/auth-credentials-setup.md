@@ -204,3 +204,73 @@ Hiện code chỉ render nút Apple và báo "sắp hỗ trợ" (`ios/Momento/Mo
   node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
   ```
 - Client ID **không phải** bí mật (lộ ra cũng không sao); client secret / `.p8` / `JWT_SECRET` **là** bí mật.
+
+---
+
+## Phần 3 — Facebook Login
+
+> **Bối cảnh:** Apple Sign-In cần **Apple Developer Program ($99/năm)** — chưa có thì chưa làm được. Facebook chỉ cần **Meta developer account (miễn phí)** → làm được ngay. Đây là social login khả thi nhất hiện tại (ngoài Google).
+>
+> **Trung thực:** Facebook nặng hơn Google/Apple — bắt buộc **FBSDKLoginKit (SPM)**, và để public cho người lạ cần **App Review + Business Verification**. Dùng cá nhân (Development mode + tài khoản test) thì KHÔNG cần review.
+
+### Bước 1: Tạo Meta app
+1. <https://developers.facebook.com/> → đăng nhập → **My Apps** → **Create App**
+2. Use case: **Authenticate and request data from users with Facebook Login** → loại **Consumer**
+3. Đặt tên app (vd "Momento")
+
+### Bước 2: Thêm Facebook Login + nền tảng iOS
+1. Trong app → **Add Product** → **Facebook Login** → **Settings**
+2. **+ Add Platform** → **iOS**:
+   - **Bundle ID**: `minhanh.Momento`
+   - Bật **Single Sign On**
+
+### Bước 3: Lấy 3 giá trị
+- **App ID** (số, công khai): Settings → Basic — vd `1234567890`
+- **Client Token**: Settings → Advanced → Security → **Client Token**
+- **App Secret**: Settings → Basic → **Show** — **BÍ MẬT** (dùng cho backend verify token; KHÔNG commit)
+
+### Bước 4: Thêm tài khoản test (để dùng ngay, khỏi App Review)
+- **App Roles → Roles** → thêm chính bạn + người dùng thử làm **Tester/Developer**
+- Các tài khoản này login + lấy `email`/`public_profile` ngay ở Development mode.
+
+### Bước 5: Cấu hình Info.plist (Xcode)
+Nối thêm vào `Info.plist` hiện có (cạnh URL scheme của Google):
+```xml
+<key>FacebookAppID</key>            <string>1234567890</string>
+<key>FacebookClientToken</key>      <string>CLIENT_TOKEN</string>
+<key>FacebookDisplayName</key>      <string>Momento</string>
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLSchemes</key>
+    <array><string>fb1234567890</string></array>   <!-- fb<APP_ID> -->
+  </dict>
+</array>
+<key>LSApplicationQueriesSchemes</key>
+<array><string>fbapi</string><string>fb-messenger-share-api</string></array>
+```
+
+### Bước 6: Backend env
+```bash
+FACEBOOK_APP_ID=1234567890
+FACEBOOK_APP_SECRET=***          # bí mật — KHÔNG commit (.env đã gitignore)
+```
+Backend verify access token Facebook qua Graph API:
+1. `GET https://graph.facebook.com/debug_token?input_token=<user_token>&access_token=<APP_ID>|<APP_SECRET>` → check `data.is_valid` + `data.app_id == APP_ID`
+2. `GET https://graph.facebook.com/me?fields=id,name,email&access_token=<user_token>` → lấy `id` (= facebook_sub), name, email
+
+### Hurdle cần biết
+| Việc | Development (dùng cá nhân) | Production (public) |
+|------|---------------------------|---------------------|
+| Login + `public_profile` + `email` | ✅ ngay với Tester/Developer trong Roles | ❌ cần **App Review** + **Business Verification** |
+| FBSDKLoginKit (SPM) | bắt buộc | bắt buộc |
+| ATT (App Tracking Transparency) | dùng **Limited Login** (trả OIDC token) để né ATT | tương tự |
+
+### Bước nối code (chưa làm — ngoài phạm vi credentials)
+1. **iOS:** thêm SPM `facebook-ios-sdk` (FBSDKLoginKit) → `LoginManager` (hoặc Limited Login lấy OIDC token) → POST lên `POST /api/auth/facebook`
+2. **Backend:** `verify-facebook-token.ts` (debug_token + /me, hoặc verify OIDC id_token với JWKS Facebook) → tái dùng logic tạo/khớp user như Google; thêm cột `facebook_sub` (nullable, giống `google_sub`)
+3. iOS `SocialRow`: nối nút Facebook (đang `onUnsupported` → "sắp hỗ trợ") vào luồng thật
+
+### Lộ trình đề xuất
+1. **Bây giờ:** Facebook (free) — lấy App ID + Client Token + App Secret + thêm tài khoản test.
+2. **Sau** (khi mua Apple Developer $99 + định lên App Store): thêm Apple Sign-In (lúc đó App Store **bắt buộc** có Apple nếu đã có social login khác).
