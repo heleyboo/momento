@@ -22,7 +22,7 @@ struct ReviewView: View {
     @State private var captionError: String?
     @State private var category = "Đời thường"
     @State private var saving = false
-    @State private var locTask: Task<String?, Never>?
+    @State private var locTask: Task<PlaceInfo?, Never>?
     @State private var displayLocation: String?
 
     var body: some View {
@@ -53,7 +53,7 @@ struct ReviewView: View {
         guard let s = try? await app.settings.get(), s.geoTag else { return }
         let task = Task { await LocationProvider.shared.place() }
         locTask = task
-        displayLocation = await task.value   // surface it on the Review screen
+        displayLocation = await task.value?.name   // surface it on the Review screen
     }
 
     private var preview: some View {
@@ -153,7 +153,7 @@ struct ReviewView: View {
         Task { @MainActor in
             // Wait for the geotag capture (if any) so the post isn't saved before
             // the location resolves. nil when off/denied/unavailable.
-            let location = await locTask?.value ?? nil
+            let place = await locTask?.value ?? nil
             // Source = "ai" only if the caption is the untouched AI suggestion.
             let source = (!aiCaption.isEmpty && caption == aiCaption) ? "ai" : "user"
             let post = LocalEntry(
@@ -162,7 +162,9 @@ struct ReviewView: View {
                 category: category,
                 // Real capture date of the cover (EXIF/AV for library, now for camera).
                 takenAt: cover?.takenAt ?? Date(),
-                location: location
+                location: place?.name,
+                latitude: place?.latitude,
+                longitude: place?.longitude
             )
             context.insert(post)
             for (idx, d) in drafts.enumerated() {

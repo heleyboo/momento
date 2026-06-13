@@ -43,6 +43,11 @@ struct TimelineView: View {
             }
             .bottomBarInset()
             .background(palette.bg.ignoresSafeArea())
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    NavigationLink { MapMemoriesView() } label: { Image(systemName: "map") }
+                }
+            }
             .refreshable { await refresh() }
             .task { await refresh() }
         }

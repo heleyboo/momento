@@ -92,16 +92,20 @@ final class SyncQueue {
         }
 
         do {
-            let dto = try await api.finalize(
-                clientEntryId: post.clientEntryId,
-                // Send the caption we have; nil only if truly absent (server fills in).
-                caption: post.caption,
-                captionSource: post.captionSource,
-                category: post.category,
-                takenAt: post.takenAt,
-                location: post.location,
-                mediaClientIds: items.map { $0.mediaClientId }
-            )
+            let dto = try await withRetry {
+                try await self.api.finalize(
+                    clientEntryId: post.clientEntryId,
+                    // Send the caption we have; nil only if truly absent (server fills in).
+                    caption: post.caption,
+                    captionSource: post.captionSource,
+                    category: post.category,
+                    takenAt: post.takenAt,
+                    location: post.location,
+                    latitude: post.latitude,
+                    longitude: post.longitude,
+                    mediaClientIds: items.map { $0.mediaClientId }
+                )
+            }
             post.serverId = dto.id
             // Adopt server-filled caption only for AI posts and only when present.
             if post.captionSource == "ai" {
@@ -135,21 +139,49 @@ final class SyncQueue {
 
         let (ext, mime) = media.isVideo ? ("mov", "video/quicktime") : ("jpg", "image/jpeg")
         do {
-            try await api.stageMedia(StageMediaParams(
-                clientEntryId: clientEntryId,
-                mediaClientId: media.mediaClientId,
-                kind: media.kind,
-                mediaData: mediaData,
-                mediaExt: ext,
-                mediaMime: mime,
-                posterData: posterData,
-                durationSec: media.durationSec
-            ))
+            try await withRetry {
+                try await self.api.stageMedia(StageMediaParams(
+                    clientEntryId: clientEntryId,
+                    mediaClientId: media.mediaClientId,
+                    kind: media.kind,
+                    mediaData: mediaData,
+                    mediaExt: ext,
+                    mediaMime: mime,
+                    posterData: posterData,
+                    durationSec: media.durationSec
+                ))
+            }
             media.uploadState = .done
             try? context.save()
         } catch {
             media.uploadState = .error
             try? context.save()
+        }
+    }
+
+    // Retries transient failures (network drop, server 5xx) with backoff before
+    // giving up to .error. Permanent failures (4xx / auth) throw immediately —
+    // re-sending won't help. Stops early if the network goes away mid-backoff;
+    // the row stays non-done and a later trigger (reconnect/foreground) retries.
+    private func withRetry<T>(_ op: () async throws -> T) async throws -> T {
+        let delays: [UInt64] = [1, 3, 7] // seconds
+        var attempt = 0
+        while true {
+            do { return try await op() }
+            catch {
+                guard isTransient(error), attempt < delays.count,
+                      monitor.canUpload(wifiOnly: wifiOnly) else { throw error }
+                try? await Task.sleep(for: .seconds(delays[attempt]))
+                attempt += 1
+            }
+        }
+    }
+
+    private func isTransient(_ error: Error) -> Bool {
+        switch error {
+        case APIError.transport: return true            // connection lost / timed out
+        case APIError.http(let code): return code >= 500 || code < 0
+        default: return false                            // 4xx / unauthorized / decoding = permanent
         }
     }
 }

@@ -1,8 +1,15 @@
 import Foundation
 import CoreLocation
 
-// One-shot location → short place name (e.g. "Quận 1, TP. Hồ Chí Minh"), used to
-// geotag a post when the setting is on. Requests When-In-Use permission lazily.
+// Resolved geotag: a short place name + coordinates for the memories map.
+struct PlaceInfo {
+    let name: String?
+    let latitude: Double
+    let longitude: Double
+}
+
+// One-shot location → place name + coordinates, used to geotag a post when the
+// setting is on. Requests When-In-Use permission lazily.
 @MainActor
 final class LocationProvider: NSObject, CLLocationManagerDelegate {
     static let shared = LocationProvider()
@@ -16,11 +23,13 @@ final class LocationProvider: NSObject, CLLocationManagerDelegate {
         manager.delegate = self
     }
 
-    /// Returns a human-readable place name, or nil if unavailable/denied.
-    func place() async -> String? {
+    /// Returns the place name + coordinates, or nil if unavailable/denied.
+    func place() async -> PlaceInfo? {
         guard await authorize() else { return nil }
         guard let loc = await oneShot() else { return nil }
-        return await name(for: loc)
+        return PlaceInfo(name: await name(for: loc),
+                         latitude: loc.coordinate.latitude,
+                         longitude: loc.coordinate.longitude)
     }
 
     private func authorize() async -> Bool {

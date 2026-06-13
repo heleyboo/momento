@@ -35,6 +35,8 @@ struct EntryDTO: Codable, Identifiable, Hashable {
     let category: String?
     let takenAt: String        // ISO 8601
     let location: String?
+    let latitude: Double?
+    let longitude: Double?
     let syncStatus: String
     let media: [MediaDTO]
     let createdAt: String

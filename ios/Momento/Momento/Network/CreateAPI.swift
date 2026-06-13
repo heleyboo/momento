@@ -71,6 +71,8 @@ struct CreateAPI {
         category: String?,
         takenAt: Date,
         location: String?,
+        latitude: Double?,
+        longitude: Double?,
         mediaClientIds: [UUID]
     ) async throws -> EntryDTO {
         var req = client.makeRequest("/api/entries", method: "POST")
@@ -84,6 +86,8 @@ struct CreateAPI {
         if let caption { body["caption"] = caption }
         if let category { body["category"] = category }
         if let location { body["location"] = location }
+        if let latitude { body["latitude"] = latitude }
+        if let longitude { body["longitude"] = longitude }
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let data = try await client.raw(req)
         return try JSONDecoder().decode(EntryDTO.self, from: data)

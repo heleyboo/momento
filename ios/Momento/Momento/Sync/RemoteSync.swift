@@ -39,6 +39,8 @@ enum RemoteSync {
                     category: dto.category,
                     takenAt: dto.takenDate ?? Date(),
                     location: dto.location,
+                    latitude: dto.latitude,
+                    longitude: dto.longitude,
                     syncState: .done
                 )
                 e.serverId = dto.id

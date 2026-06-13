@@ -24,6 +24,8 @@ final class LocalEntry {
     var category: String?
     var takenAt: Date
     var location: String?
+    var latitude: Double?
+    var longitude: Double?
     var syncStateRaw: String
     var createdAt: Date
 
@@ -59,6 +61,8 @@ final class LocalEntry {
         category: String?,
         takenAt: Date,
         location: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
         syncState: SyncState = .pending
     ) {
         self.clientEntryId = clientEntryId
@@ -67,6 +71,8 @@ final class LocalEntry {
         self.category = category
         self.takenAt = takenAt
         self.location = location
+        self.latitude = latitude
+        self.longitude = longitude
         self.syncStateRaw = syncState.rawValue
         self.createdAt = Date()
     }
