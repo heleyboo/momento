@@ -10,6 +10,7 @@ struct DraftMedia: Identifiable, Equatable {
     let posterData: Data    // poster bytes (preview + cover caption)
     let durationSec: Double?
     let sizeBytes: Int
+    let takenAt: Date       // real capture date (EXIF/AV metadata; now() for camera)
 
     static func == (a: DraftMedia, b: DraftMedia) -> Bool { a.id == b.id }
 }

@@ -160,7 +160,8 @@ struct ReviewView: View {
                 caption: caption.isEmpty ? nil : caption,
                 captionSource: source,
                 category: category,
-                takenAt: Date(),
+                // Real capture date of the cover (EXIF/AV for library, now for camera).
+                takenAt: cover?.takenAt ?? Date(),
                 location: location
             )
             context.insert(post)

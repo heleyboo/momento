@@ -173,7 +173,7 @@ struct ComposerView: View {
         drafts.append(DraftMedia(
             id: UUID(), kind: m.kind == .video ? "video" : "photo",
             mediaPath: mediaPath, posterPath: posterPath, posterData: m.posterData,
-            durationSec: m.durationSec, sizeBytes: m.mediaData.count
+            durationSec: m.durationSec, sizeBytes: m.mediaData.count, takenAt: Date()
         ))
     }
 

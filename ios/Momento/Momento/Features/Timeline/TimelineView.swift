@@ -21,6 +21,7 @@ struct TimelineView: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     header
+                    if !memories.isEmpty { memoriesSection }
                     if entries.isEmpty { emptyState }
                     ForEach(groups) { group in
                         Section {
@@ -45,6 +46,58 @@ struct TimelineView: View {
             .refreshable { await refresh() }
             .task { await refresh() }
         }
+    }
+
+    // Moments taken on today's month/day in earlier years ("On this day").
+    private var memories: [LocalEntry] {
+        let cal = Calendar.current
+        let now = Date()
+        let m = cal.component(.month, from: now)
+        let d = cal.component(.day, from: now)
+        let y = cal.component(.year, from: now)
+        return entries.filter {
+            cal.component(.year, from: $0.takenAt) < y
+                && cal.component(.month, from: $0.takenAt) == m
+                && cal.component(.day, from: $0.takenAt) == d
+        }
+    }
+
+    private var memoriesSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Ngày này năm xưa", systemImage: "sparkles")
+                .font(Typo.daySection).foregroundStyle(palette.accent)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(memories.enumerated()), id: \.element.id) { i, entry in
+                        NavigationLink {
+                            EntryPagerView(entries: memories, startIndex: i)
+                        } label: { memoryCard(entry) }
+                            .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func memoryCard(_ entry: LocalEntry) -> some View {
+        EntryImage(media: entry.cover)
+            .frame(width: 132, height: 168).clipped()
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(alignment: .bottom) {
+                LinearGradient(colors: [.clear, .black.opacity(0.6)], startPoint: .center, endPoint: .bottom)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+            }
+            .overlay(alignment: .bottomLeading) {
+                Text(yearsAgoText(entry))
+                    .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(.white)
+                    .padding(10)
+            }
+    }
+
+    private func yearsAgoText(_ entry: LocalEntry) -> String {
+        let cal = Calendar.current
+        let n = cal.component(.year, from: Date()) - cal.component(.year, from: entry.takenAt)
+        return n == 1 ? "1 năm trước" : "\(n) năm trước"
     }
 
     private var header: some View {
