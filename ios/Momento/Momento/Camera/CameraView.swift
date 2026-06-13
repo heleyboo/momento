@@ -12,6 +12,7 @@ struct CameraView: View {
     @State private var mode: Mode = .photo
     @State private var flashFrame = false
     @State private var busy = false
+    @Namespace private var modeNS
 
     enum Mode { case photo, video }
 
@@ -53,19 +54,35 @@ struct CameraView: View {
     }
 
     private var modeToggle: some View {
-        HStack(spacing: 22) {
-            modeLabel("ẢNH", .photo)
-            modeLabel("VIDEO", .video)
+        HStack(spacing: 4) {
+            modeSegment("ẢNH", .photo)
+            modeSegment("VIDEO", .video)
         }
+        .padding(4)
+        .background(Capsule().fill(.black.opacity(0.32)))
         .padding(.bottom, 18)
+        .opacity(controller.isRecording ? 0 : 1)   // hide while recording, like iOS
+        .animation(.easeInOut(duration: 0.2), value: controller.isRecording)
     }
 
-    private func modeLabel(_ text: String, _ value: Mode) -> some View {
-        Button { mode = value } label: {
+    private func modeSegment(_ text: String, _ value: Mode) -> some View {
+        let active = mode == value
+        return Button {
+            withAnimation(.spring(duration: 0.3)) { mode = value }
+        } label: {
             Text(text)
                 .font(.system(size: 13, weight: .bold)).kerning(1.2)
-                .foregroundStyle(mode == value ? palette.accent : .white.opacity(0.62))
+                .foregroundStyle(active ? .black : .white)
+                .padding(.horizontal, 20).padding(.vertical, 9)
+                .frame(minWidth: 80)
+                .background {
+                    if active {
+                        Capsule().fill(.white).matchedGeometryEffect(id: "modeSel", in: modeNS)
+                    }
+                }
+                .contentShape(Capsule())   // whole segment is tappable
         }
+        .buttonStyle(.plain)
         .disabled(controller.isRecording)
     }
 
